@@ -1,0 +1,7 @@
+{
+  "name": "bench",
+  "license": "MIT",
+  "devDependencies": {
+    "flatbush": "^4.0.0"
+  }
+}
