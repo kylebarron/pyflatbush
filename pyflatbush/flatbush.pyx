@@ -25,7 +25,7 @@ cdef class Flatbush:
 
     cdef readonly bytearray data
     cdef readonly double [:] _boxes
-    cdef readonly unsigned short [:] _indices
+    cdef readonly unsigned int [:] _indices
 
     # static from_buffer(data) {
     #     if (!(data instanceof ArrayBuffer)) {
@@ -376,7 +376,7 @@ cdef upperBound(value, arr):
 cdef void sort(
         unsigned int [:] values,
         double [:] boxes,
-        unsigned short [:] indices,
+        unsigned int [:] indices,
         unsigned int left,
         unsigned int right,
         unsigned int nodeSize):
@@ -416,7 +416,7 @@ cdef void sort(
 cdef void swap(
         unsigned int [:] values,
         double [:] boxes,
-        unsigned short [:] indices,
+        unsigned int [:] indices,
         int i,
         int j):
     """swap two values and two corresponding boxes"""
