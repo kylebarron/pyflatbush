@@ -1,182 +1,185 @@
+import numpy as np
+cimport numpy as np
 
-import FlatQueue from 'flatqueue';
+import FlatQueue from 'flatqueue'
 
-const ARRAY_TYPES = [
-    Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array,
-    Int32Array, Uint32Array, Float32Array, Float64Array
-];
 
-const VERSION = 3; // serialized format version
+# serialized format version
+VERSION = 3
 
 cdef class Flatbush:
+    cdef readonly unsigned int numItems
+    cdef readonly unsigned int nodeSize
 
-    static from(data) {
-        if (!(data instanceof ArrayBuffer)) {
-            throw new Error('Data must be an instance of ArrayBuffer.');
-        }
-        const [magic, versionAndType] = new Uint8Array(data, 0, 2);
-        if (magic !== 0xfb) {
-            throw new Error('Data does not appear to be in a Flatbush format.');
-        }
-        if (versionAndType >> 4 !== VERSION) {
-            throw new Error(`Got v${versionAndType >> 4} data when expected v${VERSION}.`);
-        }
-        const [nodeSize] = new Uint16Array(data, 2, 1);
-        const [numItems] = new Uint32Array(data, 4, 1);
+    # static from(data) {
+    #     if (!(data instanceof ArrayBuffer)) {
+    #         throw new Error('Data must be an instance of ArrayBuffer.')
+    #     }
+    #     const [magic, versionAndType] = new Uint8Array(data, 0, 2)
+    #     if (magic !== 0xfb) {
+    #         throw new Error('Data does not appear to be in a Flatbush format.')
+    #     }
+    #     if (versionAndType >> 4 !== VERSION) {
+    #         throw new Error(`Got v${versionAndType >> 4} data when expected v${VERSION}.`)
+    #     }
+    #     const [nodeSize] = new Uint16Array(data, 2, 1)
+    #     const [numItems] = new Uint32Array(data, 4, 1)
 
-        return new Flatbush(numItems, nodeSize, ARRAY_TYPES[versionAndType & 0x0f], data);
-    }
+    #     return new Flatbush(numItems, nodeSize, ARRAY_TYPES[versionAndType & 0x0f], data)
+    # }
 
-    cdef constructor(self, numItems, nodeSize = 16, ArrayType = Float64Array, data):
-        if (numItems === undefined) throw new Error('Missing required argument: numItems.');
-        if (isNaN(numItems) || numItems <= 0) throw new Error(`Unpexpected numItems value: ${numItems}.`);
+    cdef constructor(self, unsigned int numItems, unsigned int nodeSize = 16, ArrayType = Float64Array, data):
+        if numItems <= 0:
+            raise ValueError('numItems must be greater than 0')
+        if nodeSize < 2 or nodeSize > 65535:
+            raise ValueError('nodeSize must be between 2 and 65535')
 
-        self.numItems = +numItems;
-        self.nodeSize = Math.min(Math.max(+nodeSize, 2), 65535);
+        self.numItems = numItems
+        self.nodeSize = min(max(nodeSize, 2), 65535)
 
-        // calculate the total number of nodes in the R-tree to allocate space for
-        // and the index of each tree level (used in search later)
-        let n = numItems;
-        let numNodes = n;
-        self._levelBounds = [n * 4];
+        # calculate the total number of nodes in the R-tree to allocate space for
+        # and the index of each tree level (used in search later)
+        let n = numItems
+        let numNodes = n
+        self._levelBounds = [n * 4]
         do {
-            n = Math.ceil(n / self.nodeSize);
-            numNodes += n;
-            self._levelBounds.push(numNodes * 4);
-        } while (n !== 1);
+            n = Math.ceil(n / self.nodeSize)
+            numNodes += n
+            self._levelBounds.push(numNodes * 4)
+        } while (n !== 1)
 
-        self.ArrayType = ArrayType || Float64Array;
-        self.IndexArrayType = numNodes < 16384 ? Uint16Array : Uint32Array;
+        self.ArrayType = ArrayType || Float64Array
+        self.IndexArrayType = numNodes < 16384 ? Uint16Array : Uint32Array
 
-        const arrayTypeIndex = ARRAY_TYPES.indexOf(self.ArrayType);
-        const nodesByteSize = numNodes * 4 * self.ArrayType.BYTES_PER_ELEMENT;
+        const arrayTypeIndex = ARRAY_TYPES.indexOf(self.ArrayType)
+        const nodesByteSize = numNodes * 4 * self.ArrayType.BYTES_PER_ELEMENT
 
         if (arrayTypeIndex < 0) {
-            throw new Error(`Unexpected typed array class: ${ArrayType}.`);
+            throw new Error(`Unexpected typed array class: ${ArrayType}.`)
         }
 
         if (data && (data instanceof ArrayBuffer)) {
-            self.data = data;
-            self._boxes = new self.ArrayType(self.data, 8, numNodes * 4);
-            self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes);
+            self.data = data
+            self._boxes = new self.ArrayType(self.data, 8, numNodes * 4)
+            self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes)
 
-            self._pos = numNodes * 4;
-            self.minX = self._boxes[self._pos - 4];
-            self.minY = self._boxes[self._pos - 3];
-            self.maxX = self._boxes[self._pos - 2];
-            self.maxY = self._boxes[self._pos - 1];
+            self._pos = numNodes * 4
+            self.minX = self._boxes[self._pos - 4]
+            self.minY = self._boxes[self._pos - 3]
+            self.maxX = self._boxes[self._pos - 2]
+            self.maxY = self._boxes[self._pos - 1]
 
         } else {
-            self.data = new ArrayBuffer(8 + nodesByteSize + numNodes * self.IndexArrayType.BYTES_PER_ELEMENT);
-            self._boxes = new self.ArrayType(self.data, 8, numNodes * 4);
-            self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes);
-            self._pos = 0;
-            self.minX = Infinity;
-            self.minY = Infinity;
-            self.maxX = -Infinity;
-            self.maxY = -Infinity;
+            self.data = new ArrayBuffer(8 + nodesByteSize + numNodes * self.IndexArrayType.BYTES_PER_ELEMENT)
+            self._boxes = new self.ArrayType(self.data, 8, numNodes * 4)
+            self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes)
+            self._pos = 0
+            self.minX = Infinity
+            self.minY = Infinity
+            self.maxX = -Infinity
+            self.maxY = -Infinity
 
-            new Uint8Array(self.data, 0, 2).set([0xfb, (VERSION << 4) + arrayTypeIndex]);
-            new Uint16Array(self.data, 2, 1)[0] = nodeSize;
-            new Uint32Array(self.data, 4, 1)[0] = numItems;
+            new Uint8Array(self.data, 0, 2).set([0xfb, (VERSION << 4) + arrayTypeIndex])
+            new Uint16Array(self.data, 2, 1)[0] = nodeSize
+            new Uint32Array(self.data, 4, 1)[0] = numItems
         }
 
-        // a priority queue for k-nearest-neighbors queries
-        self._queue = new FlatQueue();
+        # a priority queue for k-nearest-neighbors queries
+        self._queue = new FlatQueue()
     }
 
     cdef add(self, minX, minY, maxX, maxY):
-        const index = self._pos >> 2;
-        self._indices[index] = index;
-        self._boxes[self._pos++] = minX;
-        self._boxes[self._pos++] = minY;
-        self._boxes[self._pos++] = maxX;
-        self._boxes[self._pos++] = maxY;
+        const index = self._pos >> 2
+        self._indices[index] = index
+        self._boxes[self._pos++] = minX
+        self._boxes[self._pos++] = minY
+        self._boxes[self._pos++] = maxX
+        self._boxes[self._pos++] = maxY
 
-        if (minX < self.minX) self.minX = minX;
-        if (minY < self.minY) self.minY = minY;
-        if (maxX > self.maxX) self.maxX = maxX;
-        if (maxY > self.maxY) self.maxY = maxY;
+        if (minX < self.minX) self.minX = minX
+        if (minY < self.minY) self.minY = minY
+        if (maxX > self.maxX) self.maxX = maxX
+        if (maxY > self.maxY) self.maxY = maxY
 
-        return index;
+        return index
     }
 
     cdef finish(self):
         if (self._pos >> 2 !== self.numItems) {
-            throw new Error(`Added ${self._pos >> 2} items when expected ${self.numItems}.`);
+            throw new Error(`Added ${self._pos >> 2} items when expected ${self.numItems}.`)
         }
 
         if (self.numItems <= self.nodeSize) {
             # only one node, skip sorting and just fill the root box
-            self._boxes[self._pos++] = self.minX;
-            self._boxes[self._pos++] = self.minY;
-            self._boxes[self._pos++] = self.maxX;
-            self._boxes[self._pos++] = self.maxY;
-            return;
+            self._boxes[self._pos++] = self.minX
+            self._boxes[self._pos++] = self.minY
+            self._boxes[self._pos++] = self.maxX
+            self._boxes[self._pos++] = self.maxY
+            return
         }
 
-        const width = (self.maxX - self.minX) || 1;
-        const height = (self.maxY - self.minY) || 1;
-        const hilbertValues = new Uint32Array(self.numItems);
-        const hilbertMax = (1 << 16) - 1;
+        const width = (self.maxX - self.minX) || 1
+        const height = (self.maxY - self.minY) || 1
+        const hilbertValues = new Uint32Array(self.numItems)
+        const hilbertMax = (1 << 16) - 1
 
         # map item centers into Hilbert coordinate space and calculate Hilbert values
         for (let i = 0; i < self.numItems; i++) {
-            let pos = 4 * i;
-            const minX = self._boxes[pos++];
-            const minY = self._boxes[pos++];
-            const maxX = self._boxes[pos++];
-            const maxY = self._boxes[pos++];
-            const x = Math.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width);
-            const y = Math.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height);
-            hilbertValues[i] = hilbert(x, y);
+            let pos = 4 * i
+            const minX = self._boxes[pos++]
+            const minY = self._boxes[pos++]
+            const maxX = self._boxes[pos++]
+            const maxY = self._boxes[pos++]
+            const x = Math.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
+            const y = Math.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
+            hilbertValues[i] = hilbert(x, y)
         }
 
         # sort items by their Hilbert value (for packing later)
-        sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize);
+        sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize)
 
         # generate nodes at each tree level, bottom-up
         for (let i = 0, pos = 0; i < self._levelBounds.length - 1; i++) {
-            const end = self._levelBounds[i];
+            const end = self._levelBounds[i]
 
             # generate a parent node for each block of consecutive <nodeSize> nodes
             while (pos < end) {
-                const nodeIndex = pos;
+                const nodeIndex = pos
 
                 # calculate bbox for the new node
-                let nodeMinX = Infinity;
-                let nodeMinY = Infinity;
-                let nodeMaxX = -Infinity;
-                let nodeMaxY = -Infinity;
+                let nodeMinX = Infinity
+                let nodeMinY = Infinity
+                let nodeMaxX = -Infinity
+                let nodeMaxY = -Infinity
                 for (let i = 0; i < self.nodeSize && pos < end; i++) {
-                    nodeMinX = Math.min(nodeMinX, self._boxes[pos++]);
-                    nodeMinY = Math.min(nodeMinY, self._boxes[pos++]);
-                    nodeMaxX = Math.max(nodeMaxX, self._boxes[pos++]);
-                    nodeMaxY = Math.max(nodeMaxY, self._boxes[pos++]);
+                    nodeMinX = Math.min(nodeMinX, self._boxes[pos++])
+                    nodeMinY = Math.min(nodeMinY, self._boxes[pos++])
+                    nodeMaxX = Math.max(nodeMaxX, self._boxes[pos++])
+                    nodeMaxY = Math.max(nodeMaxY, self._boxes[pos++])
                 }
 
                 # add the new node to the tree data
-                self._indices[self._pos >> 2] = nodeIndex;
-                self._boxes[self._pos++] = nodeMinX;
-                self._boxes[self._pos++] = nodeMinY;
-                self._boxes[self._pos++] = nodeMaxX;
-                self._boxes[self._pos++] = nodeMaxY;
+                self._indices[self._pos >> 2] = nodeIndex
+                self._boxes[self._pos++] = nodeMinX
+                self._boxes[self._pos++] = nodeMinY
+                self._boxes[self._pos++] = nodeMaxX
+                self._boxes[self._pos++] = nodeMaxY
             }
         }
 
 
     cdef search(self, minX, minY, maxX, maxY, filterFn):
         if (self._pos !== self._boxes.length) {
-            throw new Error('Data not yet indexed - call index.finish().');
+            throw new Error('Data not yet indexed - call index.finish().')
         }
 
-        let nodeIndex = self._boxes.length - 4;
-        const queue = [];
-        const results = [];
+        let nodeIndex = self._boxes.length - 4
+        const queue = []
+        const results = []
 
         while (nodeIndex !== undefined) {
             # find the end index of the node
-            const end = Math.min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds));
+            const end = Math.min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
             # search through child nodes
             for (let pos = nodeIndex; pos < end; pos += 4) {
@@ -186,7 +189,7 @@ cdef class Flatbush:
                 if (minX > self._boxes[pos + 2]) continue; # minX > nodeMaxX
                 if (minY > self._boxes[pos + 3]) continue; # minY > nodeMaxY
 
-                const index = self._indices[pos >> 2] | 0;
+                const index = self._indices[pos >> 2] | 0
 
                 if (nodeIndex >= self.numItems * 4) {
                     queue.push(index); # node; add it to the search queue
@@ -196,33 +199,33 @@ cdef class Flatbush:
                 }
             }
 
-            nodeIndex = queue.pop();
+            nodeIndex = queue.pop()
         }
 
-        return results;
+        return results
 
 
     cdef neighbors(self, x, y, maxResults = Infinity, maxDistance = Infinity, filterFn):
         if (self._pos !== self._boxes.length) {
-            throw new Error('Data not yet indexed - call index.finish().');
+            throw new Error('Data not yet indexed - call index.finish().')
         }
 
-        let nodeIndex = self._boxes.length - 4;
-        const q = self._queue;
-        const results = [];
-        const maxDistSquared = maxDistance * maxDistance;
+        let nodeIndex = self._boxes.length - 4
+        const q = self._queue
+        const results = []
+        const maxDistSquared = maxDistance * maxDistance
 
         while (nodeIndex !== undefined) {
             # find the end index of the node
-            const end = Math.min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds));
+            const end = Math.min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
             # add child nodes to the queue
             for (let pos = nodeIndex; pos < end; pos += 4) {
-                const index = self._indices[pos >> 2] | 0;
+                const index = self._indices[pos >> 2] | 0
 
-                const dx = axisDist(x, self._boxes[pos], self._boxes[pos + 2]);
-                const dy = axisDist(y, self._boxes[pos + 1], self._boxes[pos + 3]);
-                const dist = dx * dx + dy * dy;
+                const dx = axisDist(x, self._boxes[pos], self._boxes[pos + 2])
+                const dy = axisDist(y, self._boxes[pos + 1], self._boxes[pos + 3])
+                const dist = dx * dx + dy * dy
 
                 if (nodeIndex >= self.numItems * 4) {
                     q.push(index << 1, dist); # node (use even id)
@@ -234,24 +237,24 @@ cdef class Flatbush:
 
             # pop items from the queue
             while (q.length && (q.peek() & 1)) {
-                const dist = q.peekValue();
+                const dist = q.peekValue()
                 if (dist > maxDistSquared) {
-                    q.clear();
-                    return results;
+                    q.clear()
+                    return results
                 }
-                results.push(q.pop() >> 1);
+                results.push(q.pop() >> 1)
 
                 if (results.length === maxResults) {
-                    q.clear();
-                    return results;
+                    q.clear()
+                    return results
                 }
             }
 
-            nodeIndex = q.pop() >> 1;
+            nodeIndex = q.pop() >> 1
         }
 
-        q.clear();
-        return results;
+        q.clear()
+        return results
     }
 }
 
@@ -276,7 +279,7 @@ cdef upperBound(value, arr):
 
 cdef sort(values, boxes, indices, left, right, nodeSize):
     """custom quicksort that partially sorts bbox data alongside the hilbert values"""
-    if (Math.floor(left / nodeSize) >= Math.floor(right / nodeSize)) return;
+    if (Math.floor(left / nodeSize) >= Math.floor(right / nodeSize)) return
 
     const pivot = values[(left + right) >> 1]
     let i = left - 1
