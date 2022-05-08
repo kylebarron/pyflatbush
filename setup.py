@@ -1,4 +1,4 @@
-"""Setup for pymartini."""
+"""Setup for pyflatbush."""
 from pathlib import Path
 
 import numpy as np
@@ -15,7 +15,7 @@ with open("README.md") as f:
 inst_reqs = ["numpy"]
 
 extra_reqs = {
-    "test": ["pytest", "pytest-benchmark", "imageio"],
+    "test": ["pytest"],
     "build": ["numpy", "Cython"],
 }
 
