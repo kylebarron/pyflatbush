@@ -200,8 +200,8 @@ cdef class Flatbush:
                 nodeMaxY = -np.inf
 
                 # TODO: I think I refactored this loop correctly
-                for i in range(self.nodeSize):
-                    if pos < end:
+                for j in range(self.nodeSize):
+                    if pos >= end:
                         break
 
                     nodeMinX = min(nodeMinX, self._boxes[pos])
@@ -352,11 +352,15 @@ cdef sort(values, boxes, indices, left, right, nodeSize):
     j = right + 1
 
     while True:
-        while values[i] < pivot:
+        while True:
             i += 1
+            if values[i] >= pivot:
+                break
 
-        while values[j] > pivot:
+        while True:
             j -= 1
+            if values[j] <= pivot:
+                break
 
         if i >= j:
             break
