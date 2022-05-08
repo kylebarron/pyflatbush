@@ -140,32 +140,41 @@ cdef class Flatbush:
 
         return index
 
-    cdef finish(self):
+    cdef void finish(self):
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added ${self._pos >> 2} items when expected ${self.numItems}.')
 
         if self.numItems <= self.nodeSize:
             # only one node, skip sorting and just fill the root box
-            self._boxes[self._pos++] = self.minX
-            self._boxes[self._pos++] = self.minY
-            self._boxes[self._pos++] = self.maxX
-            self._boxes[self._pos++] = self.maxY
+            self._boxes[self._pos] = self.minX
+            self._pos += 1
+            self._boxes[self._pos] = self.minY
+            self._pos += 1
+            self._boxes[self._pos] = self.maxX
+            self._pos += 1
+            self._boxes[self._pos] = self.maxY
+            self._pos += 1
             return
 
-        const width = (self.maxX - self.minX) or 1
-        const height = (self.maxY - self.minY) or 1
-        const hilbertValues = new Uint32Array(self.numItems)
-        const hilbertMax = (1 << 16) - 1
+        width = (self.maxX - self.minX) or 1
+        height = (self.maxY - self.minY) or 1
+        hilbertValues = np.zeros(self.numItems, dtype=np.uint32)
+        hilbertMax = (1 << 16) - 1
 
         # map item centers into Hilbert coordinate space and calculate Hilbert values
         for i in range(self.numItems):
-            let pos = 4 * i
-            const minX = self._boxes[pos++]
-            const minY = self._boxes[pos++]
-            const maxX = self._boxes[pos++]
-            const maxY = self._boxes[pos++]
-            const x = floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
-            const y = floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
+            pos = 4 * i
+            minX = self._boxes[pos]
+            pos += 1
+            minY = self._boxes[pos]
+            pos += 1
+            maxX = self._boxes[pos]
+            pos += 1
+            maxY = self._boxes[pos]
+            pos += 1
+
+            x = floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
+            y = floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
             hilbertValues[i] = hilbert(x, y)
 
         # sort items by their Hilbert value (for packing later)
