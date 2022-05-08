@@ -89,12 +89,17 @@ cdef class Flatbush:
         self._queue = new FlatQueue()
 
     cdef add(self, minX, minY, maxX, maxY):
-        const index = self._pos >> 2
+        index = self._pos >> 2
         self._indices[index] = index
-        self._boxes[self._pos++] = minX
-        self._boxes[self._pos++] = minY
-        self._boxes[self._pos++] = maxX
-        self._boxes[self._pos++] = maxY
+
+        self._boxes[self._pos] = minX
+        self._pos += 1
+        self._boxes[self._pos] = minY
+        self._pos += 1
+        self._boxes[self._pos] = maxX
+        self._pos += 1
+        self._boxes[self._pos] = maxY
+        self._pos += 1
 
         if minX < self.minX:
             self.minX = minX
