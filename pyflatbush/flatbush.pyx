@@ -22,7 +22,7 @@ cdef class Flatbush:
     # Can't store Numpy arrays as class attributes, but you _can_ store the
     # associated memoryviews
     # https://stackoverflow.com/a/23840186
-    cdef readonly np.float32_t[:] _boxes
+    cdef readonly np.float64_t[:] _boxes
     cdef readonly np.uint32_t[:] _indices
 
     # static from(data) {
@@ -71,10 +71,12 @@ cdef class Flatbush:
             numNodes += n
             self._levelBounds.append(numNodes * 4)
 
-        if numNodes < 16384:
-            IndexArrayType = np.uint16
-        else:
-            IndexArrayType = np.uint32
+        # TODO: support uint16 for index
+        IndexArrayType = np.uint32
+        # if numNodes < 16384:
+        #     IndexArrayType = np.uint16
+        # else:
+        #     IndexArrayType = np.uint32
 
         # const arrayTypeIndex = ARRAY_TYPES.indexOf(ArrayType)
         arrayTypeIndex = 8
@@ -86,8 +88,8 @@ cdef class Flatbush:
 
         if data is not None:
             self.data = data
-            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=numNodes * 4)
-            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=numNodes)
+            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=int(numNodes * 4))
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=int(numNodes))
 
             self._pos = numNodes * 4
             self.minX = self._boxes[self._pos - 4]
@@ -97,8 +99,8 @@ cdef class Flatbush:
 
         else:
             self.data = bytearray(int(8 + nodesByteSize + numNodes * np.iinfo(IndexArrayType).bits / 8))
-            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=numNodes * 4)
-            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=numNodes)
+            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=int(numNodes * 4))
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=int(8 + nodesByteSize), count=int(numNodes))
 
             self._pos = 0
             self.minX = np.inf
