@@ -23,9 +23,6 @@ data = [
     89, 56, 74, 60, 76, 63, 62, 66, 65, 67
 ]
 
-def compare(a, b):
-    return a - b
-
 
 def create_index():
     index = Flatbush(int(len(data) / 4))
@@ -52,10 +49,10 @@ def create_small_index(numItems, nodeSize):
 def test_indexes_a_bunch_of_rectangles():
     index = create_index()
 
-    length = len(index._boxes)
+    boxes_len = len(index._boxes)
     assert len(index._boxes) + len(index._indices) == 540
-    # t.same(Array.from(index._boxes.subarray(length - 4, length)), [0, 1, 96, 95])
-    # t.same(index._indices[length / 4 - 1], 400)
+    assert np.array_equal(index._boxes[boxes_len - 4:boxes_len], [0, 1, 96, 95])
+    assert index._indices[int(boxes_len / 4 - 1)] == 400
 
 
 def test_skips_sorting_less_than_nodeSize_number_of_rectangles():
@@ -102,69 +99,64 @@ def test_performs_bbox_search():
         results.append(data[4 * ids[i] + 2])
         results.append(data[4 * ids[i] + 3])
 
-    t.same(results.sort(compare), [57, 59, 58, 59, 48, 53, 52, 56, 40, 42, 43, 43, 43, 41, 47, 43].sort(compare))
+    assert sorted(results) == sorted([57, 59, 58, 59, 48, 53, 52, 56, 40, 42, 43, 43, 43, 41, 47, 43])
 
 
 @pytest.skip()
 def test_reconstructs_an_index_from_array_buffer():
     index = create_index()
-    index2 = Flatbush.from(index.data)
+    index2 = Flatbush.from_buffer(index.data)
 
-    t.same(index, index2)
+    # TODO: might need to implement __eq__ dunder for this to work
+    assert index == index2
 
-@pytest.skip()
+
 def test_throws_an_error_if_added_less_items_than_the_index_size():
-    t.throws(() => {
-        index = new Flatbush(data.length / 4)
+    with pytest.raises(ValueError):
+        index = Flatbush(len(data) / 4)
         index.finish()
-    })
 
 
 @pytest.skip()
 def test_throws_an_error_if_searching_before_indexing():
-    t.throws(() => {
-        index = new Flatbush(data.length / 4)
+    with pytest.raises(ValueError):
+        index = Flatbush(len(data) / 4)
         index.search(0, 0, 20, 20)
-    })
 
 
-@pytest.skip()
 def test_does_not_freeze_on_numItems_0():
-    t.throws(() => {
-        new Flatbush(0); # eslint-disable-line
-    })
+    with pytest.raises(ValueError):
+        Flatbush(0)
 
 
 @pytest.skip()
 def test_performs_a_k_nearest_neighbors_query():
     index = create_index()
     ids = index.neighbors(50, 50, 3)
-    t.same(ids.sort(compare), [31, 6, 75].sort(compare))
+    assert sorted(ids) == sorted([31, 6, 75])
 
 
 @pytest.skip()
 def test_k_nearest_neighbors_query_accepts_maxDistance():
     index = create_index()
     ids = index.neighbors(50, 50, np.inf, 12)
-    t.same(ids.sort(compare), [6, 29, 31, 75, 85].sort(compare))
+    assert sorted(ids) == sorted([6, 29, 31, 75, 85])
 
 
-@pytest.skip()
-def test_k_nearest_neighbors_query_accepts_filterFn():
-    index = create_index()
-    ids = index.neighbors(50, 50, 6, np.inf, i => i % 2 === 0)
-    t.same(ids.sort(compare), [6, 16, 18, 24, 54, 80].sort(compare))
+# @pytest.skip()
+# def test_k_nearest_neighbors_query_accepts_filterFn():
+#     index = create_index()
+#     ids = index.neighbors(50, 50, 6, np.inf, i => i % 2 === 0)
+#     t.same(ids.sort(compare), [6, 16, 18, 24, 54, 80].sort(compare))
 
 
-@pytest.skip()
 def test_returns_index_of_newly_added_rectangle():
     count = 5
-    index = new Flatbush(count)
+    index = Flatbush(count)
 
     ids = []
     for i in range(count):
         id = index.add(data[i], data[i + 1], data[i + 2], data[i + 3])
         ids.append(id)
 
-    expectedSequence = Array.from(Array(count), (v, i) => i)
-    t.same(ids, expectedSequence)
+    assert ids == list(range(5))
