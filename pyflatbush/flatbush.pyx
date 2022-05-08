@@ -6,7 +6,7 @@ cimport numpy as np
 
 
 # serialized format version
-VERSION = 3
+cdef unsigned short VERSION = 3
 
 cdef class Flatbush:
     cdef readonly unsigned int numItems
@@ -61,6 +61,8 @@ cdef class Flatbush:
         self.numItems = numItems
         self.nodeSize = min(max(nodeSize, 2), 65535)
 
+        cdef unsigned int n, numNodes
+
         # calculate the total number of nodes in the R-tree to allocate space for
         # and the index of each tree level (used in search later)
         n = numItems
@@ -70,7 +72,7 @@ cdef class Flatbush:
         while n != 1:
             n = np.ceil(n / self.nodeSize)
             numNodes += n
-            self._levelBounds.push(numNodes * 4)
+            self._levelBounds.append(numNodes * 4)
 
         if numNodes < 16384:
             IndexArrayType = np.uint16
