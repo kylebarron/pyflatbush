@@ -194,26 +194,33 @@ cdef class Flatbush:
                 let nodeMaxX = -np.inf
                 let nodeMaxY = -np.inf
                 for (let i = 0; i < self.nodeSize and pos < end; i++) {
-                    nodeMinX = min(nodeMinX, self._boxes[pos++])
-                    nodeMinY = min(nodeMinY, self._boxes[pos++])
-                    nodeMaxX = max(nodeMaxX, self._boxes[pos++])
-                    nodeMaxY = max(nodeMaxY, self._boxes[pos++])
+                    nodeMinX = min(nodeMinX, self._boxes[pos])
+                    pos += 1
+                    nodeMinY = min(nodeMinY, self._boxes[pos])
+                    pos += 1
+                    nodeMaxX = max(nodeMaxX, self._boxes[pos])
+                    pos += 1
+                    nodeMaxY = max(nodeMaxY, self._boxes[pos])
+                    pos += 1
                 }
 
                 # add the new node to the tree data
                 self._indices[self._pos >> 2] = nodeIndex
-                self._boxes[self._pos++] = nodeMinX
-                self._boxes[self._pos++] = nodeMinY
-                self._boxes[self._pos++] = nodeMaxX
-                self._boxes[self._pos++] = nodeMaxY
+                self._boxes[self._pos] = nodeMinX
+                self._pos += 1
+                self._boxes[self._pos] = nodeMinY
+                self._pos += 1
+                self._boxes[self._pos] = nodeMaxX
+                self._pos += 1
+                self._boxes[self._pos] = nodeMaxY
+                self._pos += 1
 
         }
 
 
     cdef search(self, minX, minY, maxX, maxY, filterFn):
-        if (self._pos != self._boxes.length) {
+        if self._pos != self._boxes.length:
             raise ValueError('Data not yet indexed - call index.finish().')
-        }
 
         let nodeIndex = self._boxes.length - 4
         const queue = []
@@ -247,9 +254,8 @@ cdef class Flatbush:
 
 
     cdef neighbors(self, x, y, maxResults = np.inf, maxDistance = np.inf, filterFn):
-        if (self._pos != self._boxes.length) {
-            throw new Error('Data not yet indexed - call index.finish().')
-        }
+        if self._pos != self._boxes.length:
+            raise ValueError('Data not yet indexed - call index.finish().')
 
         let nodeIndex = self._boxes.length - 4
         const q = self._queue
