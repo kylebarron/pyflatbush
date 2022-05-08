@@ -298,17 +298,17 @@ cdef sort(values, boxes, indices, left, right, nodeSize):
 
 cdef swap(values, boxes, indices, i, j):
     """swap two values and two corresponding boxes"""
-    const temp = values[i]
+    temp = values[i]
     values[i] = values[j]
     values[j] = temp
 
-    const k = 4 * i
-    const m = 4 * j
+    k = 4 * i
+    m = 4 * j
 
-    const a = boxes[k]
-    const b = boxes[k + 1]
-    const c = boxes[k + 2]
-    const d = boxes[k + 3]
+    a = boxes[k]
+    b = boxes[k + 1]
+    c = boxes[k + 2]
+    d = boxes[k + 3]
     boxes[k] = boxes[m]
     boxes[k + 1] = boxes[m + 1]
     boxes[k + 2] = boxes[m + 2]
@@ -318,7 +318,7 @@ cdef swap(values, boxes, indices, i, j):
     boxes[m + 2] = c
     boxes[m + 3] = d
 
-    const e = indices[i]
+    e = indices[i]
     indices[i] = indices[j]
     indices[j] = e
 
