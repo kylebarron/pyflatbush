@@ -253,16 +253,21 @@ cdef class Flatbush:
         return results
 
 
-cdef axisDist(k, min, max):
-    return k < min ? min - k : k <= max ? 0 : k - max
+cdef axisDist(k, min_val, max_val):
+    if k < min_val:
+        return min_val - k
+    elif k <= max_val:
+        return 0
+    else:
+        return k - max_val
 
 
 cdef upperBound(value, arr):
     """binary search for the first value in the array bigger than the given"""
-    let i = 0
-    let j = arr.length - 1
+    i = 0
+    j = arr.length - 1
     while i < j:
-        const m = (i + j) >> 1
+        m = (i + j) >> 1
         if arr[m] > value:
             j = m
         else:
