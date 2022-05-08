@@ -351,6 +351,8 @@ cdef void sort(
         return
 
     cdef unsigned int pivot
+    # TODO: check the types here
+    # Should I remove boundscheck and wraparound?
     cdef int i, j
 
     pivot = values[(left + right) >> 1]
@@ -373,8 +375,19 @@ cdef void sort(
     sort(values, boxes, indices, j + 1, right, nodeSize)
 
 
-cdef swap(values, boxes, indices, i, j):
+@boundscheck(False)
+@wraparound(False)
+cdef void swap(
+        np.uint32_t[:] values,
+        np.float64_t[:] boxes,
+        np.uint32_t[:] indices,
+        int i,
+        int j):
     """swap two values and two corresponding boxes"""
+    cdef unsigned int temp, e
+    cdef int k, m
+    cdef double a, b, c, d
+
     temp = values[i]
     values[i] = values[j]
     values[j] = temp
