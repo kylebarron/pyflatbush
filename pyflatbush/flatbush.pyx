@@ -427,4 +427,14 @@ cdef hilbert(x, y):
     i1 = (i1 | (i1 << 2)) & 0x33333333
     i1 = (i1 | (i1 << 1)) & 0x55555555
 
-    return ((i1 << 1) | i0) >>> 0
+    # Note: The original js code had:
+    # ((i1 << 1) | i0) >>> 0
+    # My understand is that that forces the value on the left to "wrap around" to a positive uint32 integer.
+    # By default in Python:
+    # -5 >> 0  # -5
+    # But using a numpy uint32:
+    # np.uint32(-5) >> 0  # 4294967291
+    # This matches JS output of -5 >>> 0
+    # References:
+    # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Unsigned_right_shift
+    return np.uint32((i1 << 1) | i0) >> 0
