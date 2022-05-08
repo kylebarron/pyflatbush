@@ -117,7 +117,7 @@ cdef class Flatbush:
         # a priority queue for k-nearest-neighbors queries
         # self._queue = new FlatQueue()
 
-    cdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
+    cpdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
         index = self._pos >> 2
         self._indices[index] = index
 
@@ -141,7 +141,7 @@ cdef class Flatbush:
 
         return index
 
-    cdef void finish(self):
+    cpdef void finish(self):
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
 
