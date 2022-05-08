@@ -3,6 +3,11 @@
 # cython: wraparound=False
 # cython: initializedcheck=False
 
+# Set this to true to enable profiling hooks
+# Use with, e.g.
+# ../env/bin/python -m cProfile -s tottime bench.py > stats.txt
+# cython: profile=False
+
 import numpy as np
 
 cimport numpy as np
