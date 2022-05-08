@@ -181,19 +181,26 @@ cdef class Flatbush:
         sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize)
 
         # generate nodes at each tree level, bottom-up
-        for (let i = 0, pos = 0; i < self._levelBounds.length - 1; i++) {
-            const end = self._levelBounds[i]
+        # TODO: double check that I refactored this loop correctly
+        pos = 0
+        for i in range(len(self._levelBounds) - 1):
+            end = self._levelBounds[i]
 
             # generate a parent node for each block of consecutive <nodeSize> nodes
             while pos < end:
-                const nodeIndex = pos
+                nodeIndex = pos
 
                 # calculate bbox for the new node
-                let nodeMinX = np.inf
-                let nodeMinY = np.inf
-                let nodeMaxX = -np.inf
-                let nodeMaxY = -np.inf
-                for (let i = 0; i < self.nodeSize and pos < end; i++) {
+                nodeMinX = np.inf
+                nodeMinY = np.inf
+                nodeMaxX = -np.inf
+                nodeMaxY = -np.inf
+
+                # TODO: I think I refactored this loop correctly
+                for i in range(self.nodeSize):
+                    if pos < end:
+                        break
+
                     nodeMinX = min(nodeMinX, self._boxes[pos])
                     pos += 1
                     nodeMinY = min(nodeMinY, self._boxes[pos])
@@ -202,7 +209,6 @@ cdef class Flatbush:
                     pos += 1
                     nodeMaxY = max(nodeMaxY, self._boxes[pos])
                     pos += 1
-                }
 
                 # add the new node to the tree data
                 self._indices[self._pos >> 2] = nodeIndex
@@ -214,8 +220,6 @@ cdef class Flatbush:
                 self._pos += 1
                 self._boxes[self._pos] = nodeMaxY
                 self._pos += 1
-
-        }
 
 
     cdef search(self, minX, minY, maxX, maxY, filterFn):
