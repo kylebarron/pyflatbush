@@ -17,10 +17,10 @@ cdef class Flatbush:
     #         throw new Error('Data must be an instance of ArrayBuffer.')
     #     }
     #     const [magic, versionAndType] = new Uint8Array(data, 0, 2)
-    #     if (magic !== 0xfb) {
+    #     if (magic != 0xfb) {
     #         throw new Error('Data does not appear to be in a Flatbush format.')
     #     }
-    #     if (versionAndType >> 4 !== VERSION) {
+    #     if (versionAndType >> 4 != VERSION) {
     #         throw new Error(`Got v${versionAndType >> 4} data when expected v${VERSION}.`)
     #     }
     #     const [nodeSize] = new Uint16Array(data, 2, 1)
@@ -47,7 +47,7 @@ cdef class Flatbush:
             n = ceil(n / self.nodeSize)
             numNodes += n
             self._levelBounds.push(numNodes * 4)
-        } while (n !== 1)
+        } while (n != 1)
 
         self.ArrayType = ArrayType || Float64Array
         self.IndexArrayType = numNodes < 16384 ? Uint16Array : Uint32Array
@@ -59,7 +59,7 @@ cdef class Flatbush:
             throw new Error(`Unexpected typed array class: ${ArrayType}.`)
         }
 
-        if (data && (data instanceof ArrayBuffer)) {
+        if (data and (data instanceof ArrayBuffer)) {
             self.data = data
             self._boxes = new self.ArrayType(self.data, 8, numNodes * 4)
             self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes)
@@ -75,10 +75,10 @@ cdef class Flatbush:
             self._boxes = new self.ArrayType(self.data, 8, numNodes * 4)
             self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes)
             self._pos = 0
-            self.minX = Infinity
-            self.minY = Infinity
-            self.maxX = -Infinity
-            self.maxY = -Infinity
+            self.minX = np.inf
+            self.minY = np.inf
+            self.maxX = -np.inf
+            self.maxY = -np.inf
 
             new Uint8Array(self.data, 0, 2).set([0xfb, (VERSION << 4) + arrayTypeIndex])
             new Uint16Array(self.data, 2, 1)[0] = nodeSize
@@ -87,7 +87,6 @@ cdef class Flatbush:
 
         # a priority queue for k-nearest-neighbors queries
         self._queue = new FlatQueue()
-    }
 
     cdef add(self, minX, minY, maxX, maxY):
         const index = self._pos >> 2
@@ -107,10 +106,9 @@ cdef class Flatbush:
             self.maxY = maxY
 
         return index
-    }
 
     cdef finish(self):
-        if self._pos >> 2 !== self.numItems:
+        if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added ${self._pos >> 2} items when expected ${self.numItems}.')
 
         if self.numItems <= self.nodeSize:
@@ -127,7 +125,7 @@ cdef class Flatbush:
         const hilbertMax = (1 << 16) - 1
 
         # map item centers into Hilbert coordinate space and calculate Hilbert values
-        for (let i = 0; i < self.numItems; i++) {
+        for i in range(self.numItems):
             let pos = 4 * i
             const minX = self._boxes[pos++]
             const minY = self._boxes[pos++]
@@ -136,7 +134,6 @@ cdef class Flatbush:
             const x = floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
             const y = floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
             hilbertValues[i] = hilbert(x, y)
-        }
 
         # sort items by their Hilbert value (for packing later)
         sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize)
@@ -146,15 +143,15 @@ cdef class Flatbush:
             const end = self._levelBounds[i]
 
             # generate a parent node for each block of consecutive <nodeSize> nodes
-            while (pos < end) {
+            while pos < end:
                 const nodeIndex = pos
 
                 # calculate bbox for the new node
-                let nodeMinX = Infinity
-                let nodeMinY = Infinity
-                let nodeMaxX = -Infinity
-                let nodeMaxY = -Infinity
-                for (let i = 0; i < self.nodeSize && pos < end; i++) {
+                let nodeMinX = np.inf
+                let nodeMinY = np.inf
+                let nodeMaxX = -np.inf
+                let nodeMaxY = -np.inf
+                for (let i = 0; i < self.nodeSize and pos < end; i++) {
                     nodeMinX = min(nodeMinX, self._boxes[pos++])
                     nodeMinY = min(nodeMinY, self._boxes[pos++])
                     nodeMaxX = max(nodeMaxX, self._boxes[pos++])
@@ -167,12 +164,12 @@ cdef class Flatbush:
                 self._boxes[self._pos++] = nodeMinY
                 self._boxes[self._pos++] = nodeMaxX
                 self._boxes[self._pos++] = nodeMaxY
-            }
+
         }
 
 
     cdef search(self, minX, minY, maxX, maxY, filterFn):
-        if (self._pos !== self._boxes.length) {
+        if (self._pos != self._boxes.length) {
             raise ValueError('Data not yet indexed - call index.finish().')
         }
 
@@ -180,7 +177,7 @@ cdef class Flatbush:
         const queue = []
         const results = []
 
-        while (nodeIndex !== undefined) {
+        while nodeIndex != undefined:
             # find the end index of the node
             const end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
@@ -203,13 +200,12 @@ cdef class Flatbush:
             }
 
             nodeIndex = queue.pop()
-        }
 
         return results
 
 
-    cdef neighbors(self, x, y, maxResults = Infinity, maxDistance = Infinity, filterFn):
-        if (self._pos !== self._boxes.length) {
+    cdef neighbors(self, x, y, maxResults = np.inf, maxDistance = np.inf, filterFn):
+        if (self._pos != self._boxes.length) {
             throw new Error('Data not yet indexed - call index.finish().')
         }
 
@@ -218,7 +214,7 @@ cdef class Flatbush:
         const results = []
         const maxDistSquared = maxDistance * maxDistance
 
-        while (nodeIndex !== undefined) {
+        while nodeIndex != undefined:
             # find the end index of the node
             const end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
@@ -239,7 +235,7 @@ cdef class Flatbush:
             }
 
             # pop items from the queue
-            while (q.length && (q.peek() & 1)) {
+            while q.length and (q.peek() & 1):
                 const dist = q.peekValue()
                 if dist > maxDistSquared:
                     q.clear()
@@ -251,15 +247,11 @@ cdef class Flatbush:
                     q.clear()
                     return results
 
-            }
-
             nodeIndex = q.pop() >> 1
-        }
 
         q.clear()
         return results
-    }
-}
+
 
 cdef axisDist(k, min, max):
     return k < min ? min - k : k <= max ? 0 : k - max
@@ -269,31 +261,36 @@ cdef upperBound(value, arr):
     """binary search for the first value in the array bigger than the given"""
     let i = 0
     let j = arr.length - 1
-    while (i < j) {
+    while i < j:
         const m = (i + j) >> 1
-        if (arr[m] > value) {
+        if arr[m] > value:
             j = m
-        } else {
+        else:
             i = m + 1
-        }
-    }
+
     return arr[i]
 
 
 cdef sort(values, boxes, indices, left, right, nodeSize):
     """custom quicksort that partially sorts bbox data alongside the hilbert values"""
-    if (floor(left / nodeSize) >= floor(right / nodeSize)) return
+    if floor(left / nodeSize) >= floor(right / nodeSize):
+        return
 
     const pivot = values[(left + right) >> 1]
     let i = left - 1
     let j = right + 1
 
-    while (true) {
-        do i++; while (values[i] < pivot)
-        do j--; while (values[j] > pivot)
-        if (i >= j) break
+    while True:
+        while values[i] < pivot:
+            i += 1
+
+        while values[j] > pivot:
+            j -= 1
+
+        if i >= j:
+            break
+
         swap(values, boxes, indices, i, j)
-    }
 
     sort(values, boxes, indices, left, j, nodeSize)
     sort(values, boxes, indices, j + 1, right, nodeSize)
