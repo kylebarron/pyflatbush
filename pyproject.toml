@@ -1,0 +1,10 @@
+[project]
+requires-python = ">=3.7"
+
+[build-system]
+requires = [
+  "setuptools",
+  "wheel",
+  "cython==0.29.28",
+  "oldest-supported-numpy"
+]
