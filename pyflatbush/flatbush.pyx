@@ -1,3 +1,4 @@
+from cython cimport boundscheck, wraparound
 import numpy as np
 cimport numpy as np
 
@@ -176,7 +177,8 @@ cdef class Flatbush:
 
             x = np.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
             y = np.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
-            hilbertValues[i] = hilbert(x, y)
+            hilbertValues[i] = hilbertXYToIndex(16, x, y)
+            # hilbertValues[i] = hilbert(x, y)
 
         # sort items by their Hilbert value (for packing later)
         sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize)
@@ -338,6 +340,8 @@ cdef upperBound(value, arr):
     return arr[i]
 
 
+@boundscheck(False)
+@wraparound(False)
 cdef sort(values, boxes, indices, left, right, nodeSize):
     """custom quicksort that partially sorts bbox data alongside the hilbert values"""
     if np.floor(left / nodeSize) >= np.floor(right / nodeSize):
@@ -363,6 +367,8 @@ cdef sort(values, boxes, indices, left, right, nodeSize):
     sort(values, boxes, indices, j + 1, right, nodeSize)
 
 
+@boundscheck(False)
+@wraparound(False)
 cdef swap(values, boxes, indices, i, j):
     """swap two values and two corresponding boxes"""
     temp = values[i]
@@ -390,7 +396,7 @@ cdef swap(values, boxes, indices, i, j):
     indices[j] = e
 
 
-cdef hilbert(x, y):
+cdef hilbert(int x, int y):
     """Fast Hilbert curve algorithm by http://threadlocalmutex.com/
 
     Ported from C++ https://github.com/rawrunprotected/hilbert_curves (public domain)
@@ -448,3 +454,112 @@ cdef hilbert(x, y):
     # References:
     # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Unsigned_right_shift
     return np.uint32((i1 << 1) | i0) >> 0
+
+
+# The below is copied directly from the original C++ source instead of porting from JS' port.
+cdef unsigned int deinterleave(unsigned int x):
+    x = x & 0x55555555
+    x = (x | (x >> 1)) & 0x33333333
+    x = (x | (x >> 2)) & 0x0F0F0F0F
+    x = (x | (x >> 4)) & 0x00FF00FF
+    x = (x | (x >> 8)) & 0x0000FFFF
+    return x
+
+
+cdef unsigned int interleave(unsigned int x):
+    x = (x | (x << 8)) & 0x00FF00FF
+    x = (x | (x << 4)) & 0x0F0F0F0F
+    x = (x | (x << 2)) & 0x33333333
+    x = (x | (x << 1)) & 0x55555555
+    return x
+
+
+cdef unsigned int prefixScan(unsigned int x):
+    x = (x >> 8) ^ x
+    x = (x >> 4) ^ x
+    x = (x >> 2) ^ x
+    x = (x >> 1) ^ x
+    return x
+
+
+cdef unsigned int descan(unsigned int x):
+    return x ^ (x >> 1)
+
+
+# cdef void hilbertIndexToXY(unsigned int n, unsigned int i, unsigned int& x, unsigned int& y)
+# {
+#   i = i << (32 - 2 * n);
+
+#   unsigned int i0 = deinterleave(i);
+#   unsigned int i1 = deinterleave(i >> 1);
+
+#   unsigned int t0 = (i0 | i1) ^ 0xFFFF;
+#   unsigned int t1 = i0 & i1;
+
+#   unsigned int prefixT0 = prefixScan(t0);
+#   unsigned int prefixT1 = prefixScan(t1);
+
+#   unsigned int a = (((i0 ^ 0xFFFF) & prefixT1) | (i0 & prefixT0));
+
+#   x = (a ^ i1) >> (16 - n);
+#   y = (a ^ i0 ^ i1) >> (16 - n);
+# }
+
+cdef unsigned int hilbertXYToIndex(unsigned int n, unsigned int x, unsigned int y):
+    x = x << (16 - n)
+    y = y << (16 - n)
+
+    cdef unsigned int A, B, C, D, a, b, c, d, i0, i1
+
+    # Initial prefix scan round, prime with x and y
+    a = x ^ y
+    b = 0xFFFF ^ a
+    c = 0xFFFF ^ (x | y)
+    d = x & (y ^ 0xFFFF)
+
+    A = a | (b >> 1)
+    B = (a >> 1) ^ a
+
+    C = ((c >> 1) ^ (b & (d >> 1))) ^ c
+    D = ((a & (c >> 1)) ^ (d >> 1)) ^ d
+
+    a = A
+    b = B
+    c = C
+    d = D
+
+    A = ((a & (a >> 2)) ^ (b & (b >> 2)))
+    B = ((a & (b >> 2)) ^ (b & ((a ^ b) >> 2)))
+
+    C ^= ((a & (c >> 2)) ^ (b & (d >> 2)))
+    D ^= ((b & (c >> 2)) ^ ((a ^ b) & (d >> 2)))
+
+    a = A
+    b = B
+    c = C
+    d = D
+
+    A = ((a & (a >> 4)) ^ (b & (b >> 4)))
+    B = ((a & (b >> 4)) ^ (b & ((a ^ b) >> 4)))
+
+    C ^= ((a & (c >> 4)) ^ (b & (d >> 4)))
+    D ^= ((b & (c >> 4)) ^ ((a ^ b) & (d >> 4)))
+
+    # Final round and projection
+    a = A
+    b = B
+    c = C
+    d = D
+
+    C ^= ((a & (c >> 8)) ^ (b & (d >> 8)))
+    D ^= ((b & (c >> 8)) ^ ((a ^ b) & (d >> 8)))
+
+    # Undo transformation prefix scan
+    a = C ^ (C >> 1)
+    b = D ^ (D >> 1)
+
+    # Recover index bits
+    i0 = x ^ y
+    i1 = b | (0xFFFF ^ (i0 | a))
+
+    return ((interleave(i1) << 1) | interleave(i0)) >> (32 - 2 * n)
