@@ -74,10 +74,12 @@ cdef class Flatbush:
             numNodes += n
             self._levelBounds.append(numNodes * 4)
 
-        if numNodes < 16384:
-            IndexArrayType = np.uint16
-        else:
-            IndexArrayType = np.uint32
+        # TODO: support uint16 for index
+        IndexArrayType = np.uint32
+        # if numNodes < 16384:
+        #     IndexArrayType = np.uint16
+        # else:
+        #     IndexArrayType = np.uint32
 
         # const arrayTypeIndex = ARRAY_TYPES.indexOf(ArrayType)
         arrayTypeIndex = 8
@@ -89,8 +91,8 @@ cdef class Flatbush:
 
         if data is not None:
             self.data = data
-            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=numNodes * 4)
-            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=numNodes)
+            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=int(numNodes * 4))
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=int(numNodes))
 
             self._pos = numNodes * 4
             self.minX = self._boxes[self._pos - 4]
@@ -100,8 +102,8 @@ cdef class Flatbush:
 
         else:
             self.data = bytearray(int(8 + nodesByteSize + numNodes * np.iinfo(IndexArrayType).bits / 8))
-            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=numNodes * 4)
-            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=numNodes)
+            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=int(numNodes * 4))
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=int(8 + nodesByteSize), count=int(numNodes))
 
             self._pos = 0
             self.minX = np.inf
@@ -118,7 +120,7 @@ cdef class Flatbush:
         # a priority queue for k-nearest-neighbors queries
         # self._queue = new FlatQueue()
 
-    cdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
+    cpdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
         index = self._pos >> 2
         self._indices[index] = index
 
@@ -142,7 +144,7 @@ cdef class Flatbush:
 
         return index
 
-    cdef void finish(self):
+    cpdef void finish(self):
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
 
@@ -177,7 +179,8 @@ cdef class Flatbush:
 
             x = np.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
             y = np.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
-            hilbertValues[i] = hilbert(x, y)
+            hilbertValues[i] = hilbertXYToIndex(16, x, y)
+            # hilbertValues[i] = hilbert(x, y)
 
         # sort items by their Hilbert value (for packing later)
         sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize)
@@ -199,8 +202,8 @@ cdef class Flatbush:
                 nodeMaxY = -np.inf
 
                 # TODO: I think I refactored this loop correctly
-                for i in range(self.nodeSize):
-                    if pos < end:
+                for j in range(self.nodeSize):
+                    if pos >= end:
                         break
 
                     nodeMinX = min(nodeMinX, self._boxes[pos])
@@ -291,10 +294,10 @@ cdef class Flatbush:
 
     #             if nodeIndex >= self.numItems * 4:
     #                 # node (use even id)
-    #                 q.push(index << 1, dist)
+    #                 q.append(index << 1, dist)
     #             elif (filterFn == undefined or filterFn(index)):
     #                 # leaf item (use odd id)
-    #                 q.push((index << 1) + 1, dist)
+    #                 q.append((index << 1) + 1, dist)
     #         }
 
     #         # pop items from the queue
@@ -304,7 +307,7 @@ cdef class Flatbush:
     #                 q.clear()
     #                 return results
 
-    #             results.push(q.pop() >> 1)
+    #             results.append(q.pop() >> 1)
 
     #             if results.length == maxResults:
     #                 q.clear()
@@ -362,11 +365,15 @@ cdef void sort(
     j = right + 1
 
     while True:
-        while values[i] < pivot:
+        while True:
             i += 1
+            if values[i] >= pivot:
+                break
 
-        while values[j] > pivot:
+        while True:
             j -= 1
+            if values[j] <= pivot:
+                break
 
         if i >= j:
             break
@@ -415,7 +422,7 @@ cdef void swap(
     indices[j] = e
 
 
-cdef hilbert(x, y):
+cdef hilbert(int x, int y):
     """Fast Hilbert curve algorithm by http://threadlocalmutex.com/
 
     Ported from C++ https://github.com/rawrunprotected/hilbert_curves (public domain)
@@ -473,3 +480,112 @@ cdef hilbert(x, y):
     # References:
     # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Unsigned_right_shift
     return np.uint32((i1 << 1) | i0) >> 0
+
+
+# The below is copied directly from the original C++ source instead of porting from JS' port.
+cdef unsigned int deinterleave(unsigned int x):
+    x = x & 0x55555555
+    x = (x | (x >> 1)) & 0x33333333
+    x = (x | (x >> 2)) & 0x0F0F0F0F
+    x = (x | (x >> 4)) & 0x00FF00FF
+    x = (x | (x >> 8)) & 0x0000FFFF
+    return x
+
+
+cdef unsigned int interleave(unsigned int x):
+    x = (x | (x << 8)) & 0x00FF00FF
+    x = (x | (x << 4)) & 0x0F0F0F0F
+    x = (x | (x << 2)) & 0x33333333
+    x = (x | (x << 1)) & 0x55555555
+    return x
+
+
+cdef unsigned int prefixScan(unsigned int x):
+    x = (x >> 8) ^ x
+    x = (x >> 4) ^ x
+    x = (x >> 2) ^ x
+    x = (x >> 1) ^ x
+    return x
+
+
+cdef unsigned int descan(unsigned int x):
+    return x ^ (x >> 1)
+
+
+# cdef void hilbertIndexToXY(unsigned int n, unsigned int i, unsigned int& x, unsigned int& y)
+# {
+#   i = i << (32 - 2 * n);
+
+#   unsigned int i0 = deinterleave(i);
+#   unsigned int i1 = deinterleave(i >> 1);
+
+#   unsigned int t0 = (i0 | i1) ^ 0xFFFF;
+#   unsigned int t1 = i0 & i1;
+
+#   unsigned int prefixT0 = prefixScan(t0);
+#   unsigned int prefixT1 = prefixScan(t1);
+
+#   unsigned int a = (((i0 ^ 0xFFFF) & prefixT1) | (i0 & prefixT0));
+
+#   x = (a ^ i1) >> (16 - n);
+#   y = (a ^ i0 ^ i1) >> (16 - n);
+# }
+
+cdef unsigned int hilbertXYToIndex(unsigned int n, unsigned int x, unsigned int y):
+    x = x << (16 - n)
+    y = y << (16 - n)
+
+    cdef unsigned int A, B, C, D, a, b, c, d, i0, i1
+
+    # Initial prefix scan round, prime with x and y
+    a = x ^ y
+    b = 0xFFFF ^ a
+    c = 0xFFFF ^ (x | y)
+    d = x & (y ^ 0xFFFF)
+
+    A = a | (b >> 1)
+    B = (a >> 1) ^ a
+
+    C = ((c >> 1) ^ (b & (d >> 1))) ^ c
+    D = ((a & (c >> 1)) ^ (d >> 1)) ^ d
+
+    a = A
+    b = B
+    c = C
+    d = D
+
+    A = ((a & (a >> 2)) ^ (b & (b >> 2)))
+    B = ((a & (b >> 2)) ^ (b & ((a ^ b) >> 2)))
+
+    C ^= ((a & (c >> 2)) ^ (b & (d >> 2)))
+    D ^= ((b & (c >> 2)) ^ ((a ^ b) & (d >> 2)))
+
+    a = A
+    b = B
+    c = C
+    d = D
+
+    A = ((a & (a >> 4)) ^ (b & (b >> 4)))
+    B = ((a & (b >> 4)) ^ (b & ((a ^ b) >> 4)))
+
+    C ^= ((a & (c >> 4)) ^ (b & (d >> 4)))
+    D ^= ((b & (c >> 4)) ^ ((a ^ b) & (d >> 4)))
+
+    # Final round and projection
+    a = A
+    b = B
+    c = C
+    d = D
+
+    C ^= ((a & (c >> 8)) ^ (b & (d >> 8)))
+    D ^= ((b & (c >> 8)) ^ ((a ^ b) & (d >> 8)))
+
+    # Undo transformation prefix scan
+    a = C ^ (C >> 1)
+    b = D ^ (D >> 1)
+
+    # Recover index bits
+    i0 = x ^ y
+    i1 = b | (0xFFFF ^ (i0 | a))
+
+    return ((interleave(i1) << 1) | interleave(i0)) >> (32 - 2 * n)

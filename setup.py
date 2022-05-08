@@ -1,4 +1,4 @@
-"""Setup for pymartini."""
+"""Setup for pyflatbush."""
 from pathlib import Path
 
 import numpy as np
@@ -15,14 +15,14 @@ with open("README.md") as f:
 inst_reqs = ["numpy"]
 
 extra_reqs = {
-    "test": ["pytest", "pytest-benchmark", "imageio"],
+    "test": ["pytest"],
     "build": ["numpy", "Cython"],
 }
 
 
 # Ref https://suzyahyah.github.io/cython/programming/2018/12/01/Gotchas-in-Cython.html
-def find_pyx(path='.'):
-    return list(map(str, Path(path).glob('**/*.pyx')))
+def find_pyx(path="."):
+    return list(map(str, Path(path).glob("**/*.pyx")))
 
 
 setup(
