@@ -276,9 +276,9 @@ cdef sort(values, boxes, indices, left, right, nodeSize):
     if floor(left / nodeSize) >= floor(right / nodeSize):
         return
 
-    const pivot = values[(left + right) >> 1]
-    let i = left - 1
-    let j = right + 1
+    pivot = values[(left + right) >> 1]
+    i = left - 1
+    j = right + 1
 
     while True:
         while values[i] < pivot:
