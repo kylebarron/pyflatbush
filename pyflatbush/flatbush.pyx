@@ -1,5 +1,6 @@
 import numpy as np
 cimport numpy as np
+from libc.math cimport floor, ceil
 
 import FlatQueue from 'flatqueue'
 
@@ -43,7 +44,7 @@ cdef class Flatbush:
         let numNodes = n
         self._levelBounds = [n * 4]
         do {
-            n = Math.ceil(n / self.nodeSize)
+            n = ceil(n / self.nodeSize)
             numNodes += n
             self._levelBounds.push(numNodes * 4)
         } while (n !== 1)
@@ -132,8 +133,8 @@ cdef class Flatbush:
             const minY = self._boxes[pos++]
             const maxX = self._boxes[pos++]
             const maxY = self._boxes[pos++]
-            const x = Math.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
-            const y = Math.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
+            const x = floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
+            const y = floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
             hilbertValues[i] = hilbert(x, y)
         }
 
@@ -154,10 +155,10 @@ cdef class Flatbush:
                 let nodeMaxX = -Infinity
                 let nodeMaxY = -Infinity
                 for (let i = 0; i < self.nodeSize && pos < end; i++) {
-                    nodeMinX = Math.min(nodeMinX, self._boxes[pos++])
-                    nodeMinY = Math.min(nodeMinY, self._boxes[pos++])
-                    nodeMaxX = Math.max(nodeMaxX, self._boxes[pos++])
-                    nodeMaxY = Math.max(nodeMaxY, self._boxes[pos++])
+                    nodeMinX = min(nodeMinX, self._boxes[pos++])
+                    nodeMinY = min(nodeMinY, self._boxes[pos++])
+                    nodeMaxX = max(nodeMaxX, self._boxes[pos++])
+                    nodeMaxY = max(nodeMaxY, self._boxes[pos++])
                 }
 
                 # add the new node to the tree data
@@ -181,7 +182,7 @@ cdef class Flatbush:
 
         while (nodeIndex !== undefined) {
             # find the end index of the node
-            const end = Math.min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
+            const end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
             # search through child nodes
             for (let pos = nodeIndex; pos < end; pos += 4) {
@@ -219,7 +220,7 @@ cdef class Flatbush:
 
         while (nodeIndex !== undefined) {
             # find the end index of the node
-            const end = Math.min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
+            const end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
             # add child nodes to the queue
             for (let pos = nodeIndex; pos < end; pos += 4) {
@@ -281,7 +282,7 @@ cdef upperBound(value, arr):
 
 cdef sort(values, boxes, indices, left, right, nodeSize):
     """custom quicksort that partially sorts bbox data alongside the hilbert values"""
-    if (Math.floor(left / nodeSize) >= Math.floor(right / nodeSize)) return
+    if (floor(left / nodeSize) >= floor(right / nodeSize)) return
 
     const pivot = values[(left + right) >> 1]
     let i = left - 1
