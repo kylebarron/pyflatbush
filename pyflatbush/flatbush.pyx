@@ -22,14 +22,10 @@ cdef class Flatbush:
     cdef readonly double maxY
 
     cdef readonly bytearray data
+    cdef readonly double [:] _boxes
+    cdef readonly unsigned short [:] _indices
 
-    # Can't store Numpy arrays as class attributes, but you _can_ store the
-    # associated memoryviews
-    # https://stackoverflow.com/a/23840186
-    cdef readonly np.float64_t[:] _boxes
-    cdef readonly np.uint32_t[:] _indices
-
-    # static from(data) {
+    # static from_buffer(data) {
     #     if (!(data instanceof ArrayBuffer)) {
     #         throw new Error('Data must be an instance of ArrayBuffer.')
     #     }
@@ -385,8 +381,8 @@ cdef upperBound(value, arr):
 @wraparound(False)
 cdef void sort(
         unsigned int [:] values,
-        np.float64_t[:] boxes,
-        np.uint32_t[:] indices,
+        double [:] boxes,
+        unsigned short [:] indices,
         unsigned int left,
         unsigned int right,
         unsigned int nodeSize):
@@ -427,8 +423,8 @@ cdef void sort(
 @wraparound(False)
 cdef void swap(
         unsigned int [:] values,
-        np.float64_t[:] boxes,
-        np.uint32_t[:] indices,
+        double [:] boxes,
+        unsigned short [:] indices,
         int i,
         int j):
     """swap two values and two corresponding boxes"""
