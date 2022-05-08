@@ -1,8 +1,9 @@
-import pytest
 import numpy as np
+import pytest
+
 from pyflatbush import Flatbush
 
-
+# fmt: off
 data = [
     8, 62, 11, 66, 57, 17, 57, 19, 76, 26, 79, 29, 36, 56, 38, 56, 92, 77, 96, 80, 87, 70, 90, 74,
     43, 41, 47, 43, 0, 58, 2, 62, 76, 86, 80, 89, 27, 13, 27, 15, 71, 63, 75, 67, 25, 2, 27, 2, 87,
@@ -22,6 +23,7 @@ data = [
     66, 29, 66, 2, 15, 3, 15, 74, 77, 77, 79, 64, 11, 68, 11, 38, 4, 39, 8, 83, 73, 87, 77, 85, 52,
     89, 56, 74, 60, 76, 63, 62, 66, 65, 67
 ]
+# fmt: on
 
 
 def create_index():
@@ -51,7 +53,7 @@ def test_indexes_a_bunch_of_rectangles():
 
     boxes_len = len(index._boxes)
     assert len(index._boxes) + len(index._indices) == 540
-    assert np.array_equal(index._boxes[boxes_len - 4:boxes_len], [0, 1, 96, 95])
+    assert np.array_equal(index._boxes[boxes_len - 4 : boxes_len], [0, 1, 96, 95])
     assert index._indices[int(boxes_len / 4 - 1)] == 400
 
 
@@ -84,7 +86,10 @@ def test_skips_sorting_less_than_nodeSize_number_of_rectangles():
 
     assert np.array_equal(np.array(index._indices), np.array(expectedIndices))
     assert len(index._boxes) == (numItems + 1) * 4
-    assert np.array_equal(np.array(index._boxes[len(index._boxes) - 4:len(index._boxes)]), np.array([rootXMin, rootYMin, rootXMax, rootYMax]))
+    assert np.array_equal(
+        np.array(index._boxes[len(index._boxes) - 4 : len(index._boxes)]),
+        np.array([rootXMin, rootYMin, rootXMax, rootYMax]),
+    )
 
 
 def test_performs_bbox_search():
@@ -99,7 +104,9 @@ def test_performs_bbox_search():
         results.append(data[4 * ids[i] + 2])
         results.append(data[4 * ids[i] + 3])
 
-    assert sorted(results) == sorted([57, 59, 58, 59, 48, 53, 52, 56, 40, 42, 43, 43, 43, 41, 47, 43])
+    assert sorted(results) == sorted(
+        [57, 59, 58, 59, 48, 53, 52, 56, 40, 42, 43, 43, 43, 41, 47, 43]
+    )
 
 
 @pytest.skip()
