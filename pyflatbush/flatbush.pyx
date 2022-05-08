@@ -6,6 +6,7 @@
 import numpy as np
 
 cimport numpy as np
+from libc.math cimport ceil, floor
 from numpy.math cimport INFINITY
 
 # import FlatQueue from 'flatqueue'
@@ -72,7 +73,7 @@ cdef class Flatbush:
         self._levelBounds = [n * 4]
 
         while n != 1:
-            n = np.ceil(n / self.nodeSize)
+            n = int(ceil(n / self.nodeSize))
             numNodes += n
             self._levelBounds.append(numNodes * 4)
 
@@ -188,10 +189,11 @@ cdef class Flatbush:
 
         cdef double width, height, minX, minY, maxX, maxY
         cdef double nodeMinX, nodeMinY, nodeMaxX, nodeMaxY
+        cdef double x, y
         cdef unsigned int [:] hilbertValues
         cdef unsigned int hilbertMax
         cdef Py_ssize_t i
-        cdef unsigned int pos, x, y, end, nodeIndex
+        cdef unsigned int pos, end, nodeIndex
 
         width = (self.maxX - self.minX) or 1.0
         height = (self.maxY - self.minY) or 1.0
@@ -210,9 +212,9 @@ cdef class Flatbush:
             maxY = self._boxes[pos]
             pos += 1
 
-            x = np.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
-            y = np.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
-            hilbertValues[i] = hilbertXYToIndex(16, x, y)
+            x = hilbertMax * ((minX + maxX) / 2 - self.minX) / width
+            y = hilbertMax * ((minY + maxY) / 2 - self.minY) / height
+            hilbertValues[i] = hilbertXYToIndex(16, int(floor(x)), int(floor(y)))
 
         # sort items by their Hilbert value (for packing later)
         sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize)
@@ -382,12 +384,10 @@ cdef void sort(
         unsigned int right,
         unsigned int nodeSize):
     """custom quicksort that partially sorts bbox data alongside the hilbert values"""
-    if np.floor(left / nodeSize) >= np.floor(right / nodeSize):
+    if floor(left / nodeSize) >= floor(right / nodeSize):
         return
 
     cdef unsigned int pivot
-    # TODO: check the types here
-    # Should I remove boundscheck and wraparound?
     cdef int i, j
 
     pivot = values[(left + right) >> 1]
