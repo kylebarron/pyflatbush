@@ -120,6 +120,24 @@ cdef class Flatbush:
         # a priority queue for k-nearest-neighbors queries
         # self._queue = new FlatQueue()
 
+    cpdef unsigned int [:] add_vectorized(
+        self,
+        double [:] minX,
+        double [:] minY,
+        double [:] maxX,
+        double [:] maxY,
+    ):
+        cdef Py_ssize_t i
+        # TODO: assert same lengths
+        array_len = len(minX)
+        indexes = np.zeros(array_len, dtype=np.uint32)
+
+        for i in range(len(minX)):
+            indexes[i] = self.add(minX[i], minY[i], maxX[i], maxY[i])
+
+        return indexes
+
+
     cpdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
         index = self._pos >> 2
         self._indices[index] = index
