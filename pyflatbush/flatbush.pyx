@@ -1,6 +1,5 @@
 import numpy as np
 cimport numpy as np
-from libc.math cimport floor, ceil
 
 # import FlatQueue from 'flatqueue'
 
@@ -68,7 +67,7 @@ cdef class Flatbush:
         self._levelBounds = [n * 4]
 
         while n != 1:
-            n = ceil(n / self.nodeSize)
+            n = np.ceil(n / self.nodeSize)
             numNodes += n
             self._levelBounds.push(numNodes * 4)
 
@@ -173,8 +172,8 @@ cdef class Flatbush:
             maxY = self._boxes[pos]
             pos += 1
 
-            x = floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
-            y = floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
+            x = np.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
+            y = np.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
             hilbertValues[i] = hilbert(x, y)
 
         # sort items by their Hilbert value (for packing later)
@@ -330,7 +329,7 @@ cdef upperBound(value, arr):
 
 cdef sort(values, boxes, indices, left, right, nodeSize):
     """custom quicksort that partially sorts bbox data alongside the hilbert values"""
-    if floor(left / nodeSize) >= floor(right / nodeSize):
+    if np.floor(left / nodeSize) >= np.floor(right / nodeSize):
         return
 
     pivot = values[(left + right) >> 1]
