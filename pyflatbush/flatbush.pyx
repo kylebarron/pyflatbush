@@ -35,7 +35,7 @@ cdef class Flatbush:
     #         throw new Error('Data does not appear to be in a Flatbush format.')
     #     }
     #     if (versionAndType >> 4 != VERSION) {
-    #         throw new Error(`Got v${versionAndType >> 4} data when expected v${VERSION}.`)
+    #         throw new Error(f'Got v{versionAndType >> 4} data when expected v{VERSION}.)
     #     }
     #     const [nodeSize] = new Uint16Array(data, 2, 1)
     #     const [numItems] = new Uint32Array(data, 4, 1)
@@ -82,7 +82,7 @@ cdef class Flatbush:
         nodesByteSize = numNodes * 4 * np.finfo(ArrayType).bits / 8
 
         # if (arrayTypeIndex < 0) {
-        #     throw new Error(`Unexpected typed array class: ${ArrayType}.`)
+        #     throw new Error(f'Unexpected typed array class: {ArrayType}.')
         # }
 
         if data is not None:
@@ -142,7 +142,7 @@ cdef class Flatbush:
 
     cdef void finish(self):
         if self._pos >> 2 != self.numItems:
-            raise ValueError(f'Added ${self._pos >> 2} items when expected ${self.numItems}.')
+            raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
 
         if self.numItems <= self.nodeSize:
             # only one node, skip sorting and just fill the root box
