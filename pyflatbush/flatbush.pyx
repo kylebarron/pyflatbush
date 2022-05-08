@@ -1,4 +1,6 @@
-from cython cimport boundscheck, wraparound
+# cython: language_level=3
+# cython: boundscheck=False
+# cython: wraparound=False
 
 import numpy as np
 
@@ -119,8 +121,6 @@ cdef class Flatbush:
         # a priority queue for k-nearest-neighbors queries
         # self._queue = new FlatQueue()
 
-    @boundscheck(False)
-    @wraparound(False)
     cpdef unsigned int [:] add_vectorized(
         self,
         double [:] minX,
@@ -143,8 +143,6 @@ cdef class Flatbush:
         return indexes
 
 
-    @boundscheck(False)
-    @wraparound(False)
     cpdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
         cdef unsigned int index
 
@@ -171,8 +169,6 @@ cdef class Flatbush:
 
         return index
 
-    @boundscheck(False)
-    @wraparound(False)
     cpdef void finish(self):
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
@@ -377,8 +373,6 @@ cdef upperBound(value, arr):
     return arr[i]
 
 
-@boundscheck(False)
-@wraparound(False)
 cdef void sort(
         unsigned int [:] values,
         double [:] boxes,
@@ -419,8 +413,6 @@ cdef void sort(
     sort(values, boxes, indices, j + 1, right, nodeSize)
 
 
-@boundscheck(False)
-@wraparound(False)
 cdef void swap(
         unsigned int [:] values,
         double [:] boxes,
