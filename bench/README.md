@@ -16,3 +16,8 @@
 ```bash
 python bench.py
 ```
+
+```bash
+yarn install
+yarn --silent node bench.mjs
+```
