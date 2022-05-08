@@ -1,6 +1,9 @@
 from cython cimport boundscheck, wraparound
+
 import numpy as np
+
 cimport numpy as np
+from numpy.math cimport INFINITY
 
 # import FlatQueue from 'flatqueue'
 
@@ -106,10 +109,10 @@ cdef class Flatbush:
             self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=int(8 + nodesByteSize), count=int(numNodes))
 
             self._pos = 0
-            self.minX = np.inf
-            self.minY = np.inf
-            self.maxX = -np.inf
-            self.maxY = -np.inf
+            self.minX = INFINITY
+            self.minY = INFINITY
+            self.maxX = -INFINITY
+            self.maxY = -INFINITY
 
             self.data[0] = 0xfb
             self.data[1] = (VERSION << 4) + arrayTypeIndex
@@ -232,10 +235,10 @@ cdef class Flatbush:
                 nodeIndex = pos
 
                 # calculate bbox for the new node
-                nodeMinX = np.inf
-                nodeMinY = np.inf
-                nodeMaxX = -np.inf
-                nodeMaxY = -np.inf
+                nodeMinX = INFINITY
+                nodeMinY = INFINITY
+                nodeMaxX = -INFINITY
+                nodeMaxY = -INFINITY
 
                 # TODO: I think I refactored this loop correctly
                 for j in range(self.nodeSize):
@@ -307,7 +310,7 @@ cdef class Flatbush:
     #     return results
 
 
-    # cdef neighbors(self, x, y, maxResults = np.inf, maxDistance = np.inf, filterFn):
+    # cdef neighbors(self, x, y, maxResults = INFINITY, maxDistance = INFINITY, filterFn):
     #     if self._pos != self._boxes.length:
     #         raise ValueError('Data not yet indexed - call index.finish().')
 
