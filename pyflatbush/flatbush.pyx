@@ -6,6 +6,7 @@
 import numpy as np
 
 cimport numpy as np
+from cython cimport cdivision
 from libc.math cimport ceil, floor
 from numpy.math cimport INFINITY
 
@@ -171,6 +172,7 @@ cdef class Flatbush:
 
         return index
 
+    @cdivision(True)
     cpdef void finish(self):
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
@@ -376,6 +378,7 @@ cdef upperBound(value, arr):
     return arr[i]
 
 
+@cdivision(True)
 cdef void sort(
         unsigned int [:] values,
         double [:] boxes,
