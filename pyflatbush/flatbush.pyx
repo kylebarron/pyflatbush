@@ -26,7 +26,6 @@ cdef class Flatbush:
     cdef readonly np.float32_t[:] _boxes
     cdef readonly np.uint32_t[:] _indices
 
-
     # static from(data) {
     #     if (!(data instanceof ArrayBuffer)) {
     #         throw new Error('Data must be an instance of ArrayBuffer.')
@@ -48,7 +47,7 @@ cdef class Flatbush:
         self,
         unsigned int numItems,
         unsigned int nodeSize = 16,
-        data = None,
+        bytearray data = None,
     ):
         if numItems <= 0:
             raise ValueError('numItems must be greater than 0')
@@ -117,7 +116,7 @@ cdef class Flatbush:
         # a priority queue for k-nearest-neighbors queries
         # self._queue = new FlatQueue()
 
-    cdef add(self, minX, minY, maxX, maxY):
+    cdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
         index = self._pos >> 2
         self._indices[index] = index
 
