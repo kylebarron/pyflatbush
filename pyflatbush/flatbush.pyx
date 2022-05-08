@@ -2,7 +2,7 @@ import numpy as np
 cimport numpy as np
 from libc.math cimport floor, ceil
 
-import FlatQueue from 'flatqueue'
+# import FlatQueue from 'flatqueue'
 
 
 # serialized format version
@@ -11,6 +11,21 @@ VERSION = 3
 cdef class Flatbush:
     cdef readonly unsigned int numItems
     cdef readonly unsigned int nodeSize
+    cdef readonly list _levelBounds
+    cdef readonly unsigned int _pos
+    cdef readonly double minX
+    cdef readonly double minY
+    cdef readonly double maxX
+    cdef readonly double maxY
+
+    cdef readonly bytearray data
+
+    # Can't store Numpy arrays as class attributes, but you _can_ store the
+    # associated memoryviews
+    # https://stackoverflow.com/a/23840186
+    cdef readonly np.float32_t[:] _boxes
+    cdef readonly np.uint32_t[:] _indices
+
 
     # static from(data) {
     #     if (!(data instanceof ArrayBuffer)) {
@@ -29,40 +44,52 @@ cdef class Flatbush:
     #     return new Flatbush(numItems, nodeSize, ARRAY_TYPES[versionAndType & 0x0f], data)
     # }
 
-    cdef constructor(self, unsigned int numItems, unsigned int nodeSize = 16, ArrayType = 'double', data):
+    def __init__(
+        self,
+        unsigned int numItems,
+        unsigned int nodeSize = 16,
+        data = None,
+    ):
         if numItems <= 0:
             raise ValueError('numItems must be greater than 0')
         if nodeSize < 2 or nodeSize > 65535:
             raise ValueError('nodeSize must be between 2 and 65535')
+
+        # ArrayType was a parameter in JS
+        # TODO: make function generic across array types?
+        ArrayType = np.float64
 
         self.numItems = numItems
         self.nodeSize = min(max(nodeSize, 2), 65535)
 
         # calculate the total number of nodes in the R-tree to allocate space for
         # and the index of each tree level (used in search later)
-        let n = numItems
-        let numNodes = n
+        n = numItems
+        numNodes = n
         self._levelBounds = [n * 4]
-        do {
+
+        while n != 1:
             n = ceil(n / self.nodeSize)
             numNodes += n
             self._levelBounds.push(numNodes * 4)
-        } while (n != 1)
 
-        self.ArrayType = ArrayType || Float64Array
-        self.IndexArrayType = numNodes < 16384 ? Uint16Array : Uint32Array
+        if numNodes < 16384:
+            IndexArrayType = np.uint16
+        else:
+            IndexArrayType = np.uint32
 
-        const arrayTypeIndex = ARRAY_TYPES.indexOf(self.ArrayType)
-        const nodesByteSize = numNodes * 4 * self.ArrayType.BYTES_PER_ELEMENT
+        # const arrayTypeIndex = ARRAY_TYPES.indexOf(ArrayType)
+        arrayTypeIndex = 8
+        nodesByteSize = numNodes * 4 * np.finfo(ArrayType).bits / 8
 
-        if (arrayTypeIndex < 0) {
-            throw new Error(`Unexpected typed array class: ${ArrayType}.`)
-        }
+        # if (arrayTypeIndex < 0) {
+        #     throw new Error(`Unexpected typed array class: ${ArrayType}.`)
+        # }
 
-        if (data and (data instanceof ArrayBuffer)) {
+        if data is not None:
             self.data = data
-            self._boxes = new self.ArrayType(self.data, 8, numNodes * 4)
-            self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes)
+            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=numNodes * 4)
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=numNodes)
 
             self._pos = numNodes * 4
             self.minX = self._boxes[self._pos - 4]
@@ -70,23 +97,25 @@ cdef class Flatbush:
             self.maxX = self._boxes[self._pos - 2]
             self.maxY = self._boxes[self._pos - 1]
 
-        } else {
-            self.data = new ArrayBuffer(8 + nodesByteSize + numNodes * self.IndexArrayType.BYTES_PER_ELEMENT)
-            self._boxes = new self.ArrayType(self.data, 8, numNodes * 4)
-            self._indices = new self.IndexArrayType(self.data, 8 + nodesByteSize, numNodes)
+        else:
+            self.data = bytearray(int(8 + nodesByteSize + numNodes * np.iinfo(IndexArrayType).bits / 8))
+            self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=numNodes * 4)
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=numNodes)
+
             self._pos = 0
             self.minX = np.inf
             self.minY = np.inf
             self.maxX = -np.inf
             self.maxY = -np.inf
 
-            new Uint8Array(self.data, 0, 2).set([0xfb, (VERSION << 4) + arrayTypeIndex])
-            new Uint16Array(self.data, 2, 1)[0] = nodeSize
-            new Uint32Array(self.data, 4, 1)[0] = numItems
-        }
+            self.data[0] = 0xfb
+            self.data[1] = (VERSION << 4) + arrayTypeIndex
+
+            np.frombuffer(self.data, dtype=np.uint16, offset=2, count=1)[0] = nodeSize
+            np.frombuffer(self.data, dtype=np.uint32, offset=4, count=1)[0] = numItems
 
         # a priority queue for k-nearest-neighbors queries
-        self._queue = new FlatQueue()
+        # self._queue = new FlatQueue()
 
     cdef add(self, minX, minY, maxX, maxY):
         index = self._pos >> 2
