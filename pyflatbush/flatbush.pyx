@@ -221,35 +221,44 @@ cdef class Flatbush:
                 self._pos += 1
 
 
-    cdef search(self, minX, minY, maxX, maxY, filterFn):
+    cdef search(self, minX, minY, maxX, maxY, filterFn = None):
         if self._pos != self._boxes.length:
             raise ValueError('Data not yet indexed - call index.finish().')
 
-        let nodeIndex = self._boxes.length - 4
-        const queue = []
-        const results = []
+        nodeIndex = self._boxes.length - 4
+        queue = []
+        results = []
 
+        # TODO: fix while loop syntax
         while nodeIndex != undefined:
             # find the end index of the node
-            const end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
+            end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
             # search through child nodes
-            for (let pos = nodeIndex; pos < end; pos += 4) {
+            for pos in range(nodeIndex, end, 4):
                 # check if node bbox intersects with query bbox
-                if (maxX < self._boxes[pos]) continue; # maxX < nodeMinX
-                if (maxY < self._boxes[pos + 1]) continue; # maxY < nodeMinY
-                if (minX > self._boxes[pos + 2]) continue; # minX > nodeMaxX
-                if (minY > self._boxes[pos + 3]) continue; # minY > nodeMaxY
+                if maxX < self._boxes[pos]:
+                    # maxX < nodeMinX
+                    continue
+                if maxY < self._boxes[pos + 1]:
+                    # maxY < nodeMinY
+                    continue
+                if minX > self._boxes[pos + 2]:
+                    # minX > nodeMaxX
+                    continue
+                if minY > self._boxes[pos + 3]:
+                    # minY > nodeMaxY
+                    continue
 
-                const index = self._indices[pos >> 2] | 0
+                index = self._indices[pos >> 2] | 0
 
-                if (nodeIndex >= self.numItems * 4) {
-                    queue.push(index); # node; add it to the search queue
+                if nodeIndex >= self.numItems * 4:
+                    # node; add it to the search queue
+                    queue.append(index)
 
-                } else if (filterFn == undefined || filterFn(index)) {
-                    results.push(index); # leaf item
-                }
-            }
+                elif filterFn is None or filterFn(index):
+                    # leaf item
+                    results.append(index)
 
             nodeIndex = queue.pop()
 
