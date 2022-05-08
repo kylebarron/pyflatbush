@@ -28,7 +28,7 @@ cdef class Flatbush:
     #     return new Flatbush(numItems, nodeSize, ARRAY_TYPES[versionAndType & 0x0f], data)
     # }
 
-    cdef constructor(self, unsigned int numItems, unsigned int nodeSize = 16, ArrayType = Float64Array, data):
+    cdef constructor(self, unsigned int numItems, unsigned int nodeSize = 16, ArrayType = 'double', data):
         if numItems <= 0:
             raise ValueError('numItems must be greater than 0')
         if nodeSize < 2 or nodeSize > 65535:
@@ -96,30 +96,32 @@ cdef class Flatbush:
         self._boxes[self._pos++] = maxX
         self._boxes[self._pos++] = maxY
 
-        if (minX < self.minX) self.minX = minX
-        if (minY < self.minY) self.minY = minY
-        if (maxX > self.maxX) self.maxX = maxX
-        if (maxY > self.maxY) self.maxY = maxY
+        if minX < self.minX:
+            self.minX = minX
+        if minY < self.minY:
+            self.minY = minY
+        if maxX > self.maxX:
+            self.maxX = maxX
+        if maxY > self.maxY:
+            self.maxY = maxY
 
         return index
     }
 
     cdef finish(self):
-        if (self._pos >> 2 !== self.numItems) {
-            throw new Error(`Added ${self._pos >> 2} items when expected ${self.numItems}.`)
-        }
+        if self._pos >> 2 !== self.numItems:
+            raise ValueError(f'Added ${self._pos >> 2} items when expected ${self.numItems}.')
 
-        if (self.numItems <= self.nodeSize) {
+        if self.numItems <= self.nodeSize:
             # only one node, skip sorting and just fill the root box
             self._boxes[self._pos++] = self.minX
             self._boxes[self._pos++] = self.minY
             self._boxes[self._pos++] = self.maxX
             self._boxes[self._pos++] = self.maxY
             return
-        }
 
-        const width = (self.maxX - self.minX) || 1
-        const height = (self.maxY - self.minY) || 1
+        const width = (self.maxX - self.minX) or 1
+        const height = (self.maxY - self.minY) or 1
         const hilbertValues = new Uint32Array(self.numItems)
         const hilbertMax = (1 << 16) - 1
 
@@ -170,7 +172,7 @@ cdef class Flatbush:
 
     cdef search(self, minX, minY, maxX, maxY, filterFn):
         if (self._pos !== self._boxes.length) {
-            throw new Error('Data not yet indexed - call index.finish().')
+            raise ValueError('Data not yet indexed - call index.finish().')
         }
 
         let nodeIndex = self._boxes.length - 4
@@ -194,7 +196,7 @@ cdef class Flatbush:
                 if (nodeIndex >= self.numItems * 4) {
                     queue.push(index); # node; add it to the search queue
 
-                } else if (filterFn === undefined || filterFn(index)) {
+                } else if (filterFn == undefined || filterFn(index)) {
                     results.push(index); # leaf item
                 }
             }
@@ -227,27 +229,27 @@ cdef class Flatbush:
                 const dy = axisDist(y, self._boxes[pos + 1], self._boxes[pos + 3])
                 const dist = dx * dx + dy * dy
 
-                if (nodeIndex >= self.numItems * 4) {
-                    q.push(index << 1, dist); # node (use even id)
-
-                } else if (filterFn === undefined || filterFn(index)) {
-                    q.push((index << 1) + 1, dist); # leaf item (use odd id)
-                }
+                if nodeIndex >= self.numItems * 4:
+                    # node (use even id)
+                    q.push(index << 1, dist)
+                elif (filterFn == undefined or filterFn(index)):
+                    # leaf item (use odd id)
+                    q.push((index << 1) + 1, dist)
             }
 
             # pop items from the queue
             while (q.length && (q.peek() & 1)) {
                 const dist = q.peekValue()
-                if (dist > maxDistSquared) {
+                if dist > maxDistSquared:
                     q.clear()
                     return results
-                }
+
                 results.push(q.pop() >> 1)
 
-                if (results.length === maxResults) {
+                if results.length == maxResults:
                     q.clear()
                     return results
-                }
+
             }
 
             nodeIndex = q.pop() >> 1
