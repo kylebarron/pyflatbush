@@ -221,96 +221,96 @@ cdef class Flatbush:
                 self._pos += 1
 
 
-    cdef search(self, minX, minY, maxX, maxY, filterFn = None):
-        if self._pos != self._boxes.length:
-            raise ValueError('Data not yet indexed - call index.finish().')
+    # cdef search(self, minX, minY, maxX, maxY, filterFn = None):
+    #     if self._pos != self._boxes.length:
+    #         raise ValueError('Data not yet indexed - call index.finish().')
 
-        nodeIndex = self._boxes.length - 4
-        queue = []
-        results = []
+    #     nodeIndex = self._boxes.length - 4
+    #     queue = []
+    #     results = []
 
-        # TODO: fix while loop syntax
-        while nodeIndex != undefined:
-            # find the end index of the node
-            end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
+    #     # TODO: fix while loop syntax
+    #     while nodeIndex != undefined:
+    #         # find the end index of the node
+    #         end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
-            # search through child nodes
-            for pos in range(nodeIndex, end, 4):
-                # check if node bbox intersects with query bbox
-                if maxX < self._boxes[pos]:
-                    # maxX < nodeMinX
-                    continue
-                if maxY < self._boxes[pos + 1]:
-                    # maxY < nodeMinY
-                    continue
-                if minX > self._boxes[pos + 2]:
-                    # minX > nodeMaxX
-                    continue
-                if minY > self._boxes[pos + 3]:
-                    # minY > nodeMaxY
-                    continue
+    #         # search through child nodes
+    #         for pos in range(nodeIndex, end, 4):
+    #             # check if node bbox intersects with query bbox
+    #             if maxX < self._boxes[pos]:
+    #                 # maxX < nodeMinX
+    #                 continue
+    #             if maxY < self._boxes[pos + 1]:
+    #                 # maxY < nodeMinY
+    #                 continue
+    #             if minX > self._boxes[pos + 2]:
+    #                 # minX > nodeMaxX
+    #                 continue
+    #             if minY > self._boxes[pos + 3]:
+    #                 # minY > nodeMaxY
+    #                 continue
 
-                index = self._indices[pos >> 2] | 0
+    #             index = self._indices[pos >> 2] | 0
 
-                if nodeIndex >= self.numItems * 4:
-                    # node; add it to the search queue
-                    queue.append(index)
+    #             if nodeIndex >= self.numItems * 4:
+    #                 # node; add it to the search queue
+    #                 queue.append(index)
 
-                elif filterFn is None or filterFn(index):
-                    # leaf item
-                    results.append(index)
+    #             elif filterFn is None or filterFn(index):
+    #                 # leaf item
+    #                 results.append(index)
 
-            nodeIndex = queue.pop()
+    #         nodeIndex = queue.pop()
 
-        return results
+    #     return results
 
 
-    cdef neighbors(self, x, y, maxResults = np.inf, maxDistance = np.inf, filterFn):
-        if self._pos != self._boxes.length:
-            raise ValueError('Data not yet indexed - call index.finish().')
+    # cdef neighbors(self, x, y, maxResults = np.inf, maxDistance = np.inf, filterFn):
+    #     if self._pos != self._boxes.length:
+    #         raise ValueError('Data not yet indexed - call index.finish().')
 
-        let nodeIndex = self._boxes.length - 4
-        const q = self._queue
-        const results = []
-        const maxDistSquared = maxDistance * maxDistance
+    #     let nodeIndex = self._boxes.length - 4
+    #     const q = self._queue
+    #     const results = []
+    #     const maxDistSquared = maxDistance * maxDistance
 
-        while nodeIndex != undefined:
-            # find the end index of the node
-            const end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
+    #     while nodeIndex != undefined:
+    #         # find the end index of the node
+    #         const end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
-            # add child nodes to the queue
-            for (let pos = nodeIndex; pos < end; pos += 4) {
-                const index = self._indices[pos >> 2] | 0
+    #         # add child nodes to the queue
+    #         for (let pos = nodeIndex; pos < end; pos += 4) {
+    #             const index = self._indices[pos >> 2] | 0
 
-                const dx = axisDist(x, self._boxes[pos], self._boxes[pos + 2])
-                const dy = axisDist(y, self._boxes[pos + 1], self._boxes[pos + 3])
-                const dist = dx * dx + dy * dy
+    #             const dx = axisDist(x, self._boxes[pos], self._boxes[pos + 2])
+    #             const dy = axisDist(y, self._boxes[pos + 1], self._boxes[pos + 3])
+    #             const dist = dx * dx + dy * dy
 
-                if nodeIndex >= self.numItems * 4:
-                    # node (use even id)
-                    q.push(index << 1, dist)
-                elif (filterFn == undefined or filterFn(index)):
-                    # leaf item (use odd id)
-                    q.push((index << 1) + 1, dist)
-            }
+    #             if nodeIndex >= self.numItems * 4:
+    #                 # node (use even id)
+    #                 q.push(index << 1, dist)
+    #             elif (filterFn == undefined or filterFn(index)):
+    #                 # leaf item (use odd id)
+    #                 q.push((index << 1) + 1, dist)
+    #         }
 
-            # pop items from the queue
-            while q.length and (q.peek() & 1):
-                const dist = q.peekValue()
-                if dist > maxDistSquared:
-                    q.clear()
-                    return results
+    #         # pop items from the queue
+    #         while q.length and (q.peek() & 1):
+    #             const dist = q.peekValue()
+    #             if dist > maxDistSquared:
+    #                 q.clear()
+    #                 return results
 
-                results.push(q.pop() >> 1)
+    #             results.push(q.pop() >> 1)
 
-                if results.length == maxResults:
-                    q.clear()
-                    return results
+    #             if results.length == maxResults:
+    #                 q.clear()
+    #                 return results
 
-            nodeIndex = q.pop() >> 1
+    #         nodeIndex = q.pop() >> 1
 
-        q.clear()
-        return results
+    #     q.clear()
+    #     return results
 
 
 cdef axisDist(k, min_val, max_val):
