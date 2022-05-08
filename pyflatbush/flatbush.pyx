@@ -120,6 +120,8 @@ cdef class Flatbush:
         # a priority queue for k-nearest-neighbors queries
         # self._queue = new FlatQueue()
 
+    @boundscheck(False)
+    @wraparound(False)
     cpdef unsigned int [:] add_vectorized(
         self,
         double [:] minX,
@@ -128,17 +130,25 @@ cdef class Flatbush:
         double [:] maxY,
     ):
         cdef Py_ssize_t i
+        cdef unsigned int val, array_len
+        cdef unsigned int [:] indexes
+
         # TODO: assert same lengths
         array_len = len(minX)
         indexes = np.zeros(array_len, dtype=np.uint32)
 
-        for i in range(len(minX)):
-            indexes[i] = self.add(minX[i], minY[i], maxX[i], maxY[i])
+        for i in range(array_len):
+            val = self.add(minX[i], minY[i], maxX[i], maxY[i])
+            indexes[i] = val
 
         return indexes
 
 
+    @boundscheck(False)
+    @wraparound(False)
     cpdef unsigned int add(self, double minX, double minY, double maxX, double maxY):
+        cdef unsigned int index
+
         index = self._pos >> 2
         self._indices[index] = index
 
@@ -162,6 +172,8 @@ cdef class Flatbush:
 
         return index
 
+    @boundscheck(False)
+    @wraparound(False)
     cpdef void finish(self):
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
@@ -178,8 +190,15 @@ cdef class Flatbush:
             self._pos += 1
             return
 
-        width = (self.maxX - self.minX) or 1
-        height = (self.maxY - self.minY) or 1
+        cdef double width, height, minX, minY, maxX, maxY
+        cdef double nodeMinX, nodeMinY, nodeMaxX, nodeMaxY
+        cdef unsigned int [:] hilbertValues
+        cdef unsigned int hilbertMax
+        cdef Py_ssize_t i
+        cdef unsigned int pos, x, y, end, nodeIndex
+
+        width = (self.maxX - self.minX) or 1.0
+        height = (self.maxY - self.minY) or 1.0
         hilbertValues = np.zeros(self.numItems, dtype=np.uint32)
         hilbertMax = (1 << 16) - 1
 
@@ -198,7 +217,6 @@ cdef class Flatbush:
             x = np.floor(hilbertMax * ((minX + maxX) / 2 - self.minX) / width)
             y = np.floor(hilbertMax * ((minY + maxY) / 2 - self.minY) / height)
             hilbertValues[i] = hilbertXYToIndex(16, x, y)
-            # hilbertValues[i] = hilbert(x, y)
 
         # sort items by their Hilbert value (for packing later)
         sort(hilbertValues, self._boxes, self._indices, 0, self.numItems - 1, self.nodeSize)
@@ -363,7 +381,7 @@ cdef upperBound(value, arr):
 @boundscheck(False)
 @wraparound(False)
 cdef void sort(
-        np.uint32_t[:] values,
+        unsigned int [:] values,
         np.float64_t[:] boxes,
         np.uint32_t[:] indices,
         unsigned int left,
@@ -405,7 +423,7 @@ cdef void sort(
 @boundscheck(False)
 @wraparound(False)
 cdef void swap(
-        np.uint32_t[:] values,
+        unsigned int [:] values,
         np.float64_t[:] boxes,
         np.uint32_t[:] indices,
         int i,
@@ -438,66 +456,6 @@ cdef void swap(
     e = indices[i]
     indices[i] = indices[j]
     indices[j] = e
-
-
-cdef hilbert(int x, int y):
-    """Fast Hilbert curve algorithm by http://threadlocalmutex.com/
-
-    Ported from C++ https://github.com/rawrunprotected/hilbert_curves (public domain)
-    """
-    a = x ^ y
-    b = 0xFFFF ^ a
-    c = 0xFFFF ^ (x | y)
-    d = x & (y ^ 0xFFFF)
-
-    A = a | (b >> 1)
-    B = (a >> 1) ^ a
-    C = ((c >> 1) ^ (b & (d >> 1))) ^ c
-    D = ((a & (c >> 1)) ^ (d >> 1)) ^ d
-
-    a = A; b = B; c = C; d = D
-    A = ((a & (a >> 2)) ^ (b & (b >> 2)))
-    B = ((a & (b >> 2)) ^ (b & ((a ^ b) >> 2)))
-    C ^= ((a & (c >> 2)) ^ (b & (d >> 2)))
-    D ^= ((b & (c >> 2)) ^ ((a ^ b) & (d >> 2)))
-
-    a = A; b = B; c = C; d = D
-    A = ((a & (a >> 4)) ^ (b & (b >> 4)))
-    B = ((a & (b >> 4)) ^ (b & ((a ^ b) >> 4)))
-    C ^= ((a & (c >> 4)) ^ (b & (d >> 4)))
-    D ^= ((b & (c >> 4)) ^ ((a ^ b) & (d >> 4)))
-
-    a = A; b = B; c = C; d = D
-    C ^= ((a & (c >> 8)) ^ (b & (d >> 8)))
-    D ^= ((b & (c >> 8)) ^ ((a ^ b) & (d >> 8)))
-
-    a = C ^ (C >> 1)
-    b = D ^ (D >> 1)
-
-    i0 = x ^ y
-    i1 = b | (0xFFFF ^ (i0 | a))
-
-    i0 = (i0 | (i0 << 8)) & 0x00FF00FF
-    i0 = (i0 | (i0 << 4)) & 0x0F0F0F0F
-    i0 = (i0 | (i0 << 2)) & 0x33333333
-    i0 = (i0 | (i0 << 1)) & 0x55555555
-
-    i1 = (i1 | (i1 << 8)) & 0x00FF00FF
-    i1 = (i1 | (i1 << 4)) & 0x0F0F0F0F
-    i1 = (i1 | (i1 << 2)) & 0x33333333
-    i1 = (i1 | (i1 << 1)) & 0x55555555
-
-    # Note: The original js code had:
-    # ((i1 << 1) | i0) >>> 0
-    # My understand is that that forces the value on the left to "wrap around" to a positive uint32 integer.
-    # By default in Python:
-    # -5 >> 0  # -5
-    # But using a numpy uint32:
-    # np.uint32(-5) >> 0  # 4294967291
-    # This matches JS output of -5 >>> 0
-    # References:
-    # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Unsigned_right_shift
-    return np.uint32((i1 << 1) | i0) >> 0
 
 
 # The below is copied directly from the original C++ source instead of porting from JS' port.
@@ -549,7 +507,11 @@ cdef unsigned int descan(unsigned int x):
 #   y = (a ^ i0 ^ i1) >> (16 - n);
 # }
 
-cdef unsigned int hilbertXYToIndex(unsigned int n, unsigned int x, unsigned int y):
+cdef unsigned int hilbertXYToIndex(
+    unsigned int n,
+    unsigned int x,
+    unsigned int y
+):
     x = x << (16 - n)
     y = y << (16 - n)
 
