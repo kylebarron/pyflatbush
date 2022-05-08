@@ -1,3 +1,7 @@
+bounds.txt
+*geojson*
+pyflatbush/*.html
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
