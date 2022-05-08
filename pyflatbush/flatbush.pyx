@@ -69,7 +69,7 @@ cdef class Flatbush:
         while n != 1:
             n = np.ceil(n / self.nodeSize)
             numNodes += n
-            self._levelBounds.push(numNodes * 4)
+            self._levelBounds.append(numNodes * 4)
 
         if numNodes < 16384:
             IndexArrayType = np.uint16
@@ -288,10 +288,10 @@ cdef class Flatbush:
 
     #             if nodeIndex >= self.numItems * 4:
     #                 # node (use even id)
-    #                 q.push(index << 1, dist)
+    #                 q.append(index << 1, dist)
     #             elif (filterFn == undefined or filterFn(index)):
     #                 # leaf item (use odd id)
-    #                 q.push((index << 1) + 1, dist)
+    #                 q.append((index << 1) + 1, dist)
     #         }
 
     #         # pop items from the queue
@@ -301,7 +301,7 @@ cdef class Flatbush:
     #                 q.clear()
     #                 return results
 
-    #             results.push(q.pop() >> 1)
+    #             results.append(q.pop() >> 1)
 
     #             if results.length == maxResults:
     #                 q.clear()
