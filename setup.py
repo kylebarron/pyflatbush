@@ -15,7 +15,7 @@ with open("README.md") as f:
 inst_reqs = ["numpy"]
 
 extra_reqs = {
-    "test": ["pytest"],
+    "test": ["pytest", "flatbush"],
     "build": ["numpy", "Cython"],
 }
 
@@ -52,7 +52,7 @@ setup(
     zip_safe=False,
     install_requires=inst_reqs,
     extras_require=extra_reqs,
-    ext_modules=cythonize(find_pyx(), language_level=3),
+    ext_modules=cythonize(find_pyx("pyflatbush"), language_level=3),
     # Include Numpy headers
     include_dirs=[np.get_include()],
 )
