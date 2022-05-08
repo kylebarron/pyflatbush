@@ -2,6 +2,7 @@ import json
 from time import time
 
 import flatbush
+import numpy as np
 
 import pyflatbush
 
@@ -9,12 +10,12 @@ print("loading data")
 with open("bounds.txt") as f:
     lines = [json.loads(line) for line in f]
 
+arr = np.array(lines)
+
 
 start = time()
-index_cy = pyflatbush.Flatbush(len(lines))
-for box in lines:
-    index_cy.add(*box)
-
+index_cy = pyflatbush.Flatbush(arr.shape[0])
+out = index_cy.add_vectorized(arr[:, 0], arr[:, 1], arr[:, 2], arr[:, 3])
 index_cy.finish()
 end = time()
 
