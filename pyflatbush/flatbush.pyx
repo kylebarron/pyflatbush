@@ -1,3 +1,4 @@
+from cython cimport boundscheck, wraparound
 import numpy as np
 cimport numpy as np
 
@@ -22,7 +23,7 @@ cdef class Flatbush:
     # Can't store Numpy arrays as class attributes, but you _can_ store the
     # associated memoryviews
     # https://stackoverflow.com/a/23840186
-    cdef readonly np.float32_t[:] _boxes
+    cdef readonly np.float64_t[:] _boxes
     cdef readonly np.uint32_t[:] _indices
 
     # static from(data) {
@@ -336,10 +337,21 @@ cdef upperBound(value, arr):
     return arr[i]
 
 
-cdef sort(values, boxes, indices, left, right, nodeSize):
+@boundscheck(False)
+@wraparound(False)
+cdef void sort(
+        np.uint32_t[:] values,
+        np.float64_t[:] boxes,
+        np.uint32_t[:] indices,
+        unsigned int left,
+        unsigned int right,
+        unsigned int nodeSize):
     """custom quicksort that partially sorts bbox data alongside the hilbert values"""
     if np.floor(left / nodeSize) >= np.floor(right / nodeSize):
         return
+
+    cdef unsigned int pivot
+    cdef int i, j
 
     pivot = values[(left + right) >> 1]
     i = left - 1
