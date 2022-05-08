@@ -6,20 +6,20 @@
 import numpy as np
 
 cimport numpy as np
+from cpython.array cimport array
 from cython cimport cdivision
 from libc.math cimport ceil, floor
 from numpy.math cimport INFINITY
-
-# import FlatQueue from 'flatqueue'
 
 
 # serialized format version
 cdef unsigned short VERSION = 3
 
+
 cdef class Flatbush:
     cdef readonly unsigned int numItems
     cdef readonly unsigned int nodeSize
-    cdef readonly list _levelBounds
+    cdef readonly array _levelBounds
     cdef readonly unsigned int _pos
     cdef readonly double minX
     cdef readonly double minY
@@ -71,7 +71,8 @@ cdef class Flatbush:
         # and the index of each tree level (used in search later)
         n = numItems
         numNodes = n
-        self._levelBounds = [n * 4]
+        self._levelBounds = array('I')
+        self._levelBounds.append(n * 4)
 
         while n != 1:
             n = int(ceil(n / self.nodeSize))
