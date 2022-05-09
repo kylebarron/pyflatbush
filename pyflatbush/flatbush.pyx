@@ -136,12 +136,15 @@ cdef class Flatbush:
         double [:] minY,
         double [:] maxX,
         double [:] maxY,
-    ):
+    ) except *:
         cdef Py_ssize_t i
         cdef unsigned int val, array_len
         cdef unsigned int [:] indexes
 
-        # TODO: assert same lengths
+        assert len(minX) == len(minY) == len(maxX) == len(maxY), (
+            'Input arrays must have equal length'
+        )
+
         array_len = len(minX)
         indexes = np.zeros(array_len, dtype=np.uint32)
 
@@ -179,7 +182,7 @@ cdef class Flatbush:
         return index
 
     @cdivision(True)
-    cpdef void finish(self):
+    cpdef void finish(self) except *:
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
 
@@ -269,7 +272,7 @@ cdef class Flatbush:
                 self._pos += 1
 
 
-    cpdef search(self, double minX, double minY, double maxX, double maxY):
+    cpdef array[unsigned int] search(self, double minX, double minY, double maxX, double maxY):
         if self._pos != len(self._boxes):
             raise ValueError('Data not yet indexed - call index.finish().')
 
