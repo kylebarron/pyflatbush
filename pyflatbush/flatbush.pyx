@@ -273,9 +273,11 @@ cdef class Flatbush:
         if self._pos != len(self._boxes):
             raise ValueError('Data not yet indexed - call index.finish().')
 
+        cdef unsigned int nodeIndex, pos, index
+
         nodeIndex = len(self._boxes) - 4
-        queue = []
-        results = []
+        queue = array('I')
+        results = array('I')
 
         # TODO: fix while loop syntax
         while True:
@@ -373,8 +375,10 @@ cdef axisDist(k, min_val, max_val):
         return k - max_val
 
 
-cdef upperBound(value, arr):
+cdef unsigned int upperBound(unsigned int value, array[unsigned int] arr):
     """binary search for the first value in the array bigger than the given"""
+    cdef int i, j, m
+
     i = 0
     j = len(arr) - 1
     while i < j:
