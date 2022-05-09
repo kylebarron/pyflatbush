@@ -109,13 +109,19 @@ def test_performs_bbox_search():
     )
 
 
-@pytest.mark.skip()
 def test_reconstructs_an_index_from_array_buffer():
     index = create_index()
     index2 = Flatbush.from_buffer(index.data)
 
-    # TODO: might need to implement __eq__ dunder for this to work
-    assert index == index2
+    assert index.data == index2.data
+    assert np.array_equal(index._boxes, index2._boxes)
+    assert np.array_equal(index._indices, index2._indices)
+    assert index.minX == index2.minX
+    assert index.minY == index2.minY
+    assert index.maxX == index2.maxX
+    assert index.maxY == index2.maxY
+    assert index.numItems == index2.numItems
+    assert index.nodeSize == index2.nodeSize
 
 
 @pytest.mark.skip("Cython throws uncaught error, but not propagated up to Python")

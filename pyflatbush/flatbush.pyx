@@ -35,22 +35,22 @@ cdef class Flatbush:
     cdef readonly double [:] _boxes
     cdef readonly unsigned int [:] _indices
 
-    # static from_buffer(data) {
-    #     if (!(data instanceof ArrayBuffer)) {
-    #         throw new Error('Data must be an instance of ArrayBuffer.')
-    #     }
-    #     const [magic, versionAndType] = new Uint8Array(data, 0, 2)
-    #     if (magic != 0xfb) {
-    #         throw new Error('Data does not appear to be in a Flatbush format.')
-    #     }
-    #     if (versionAndType >> 4 != VERSION) {
-    #         throw new Error(f'Got v{versionAndType >> 4} data when expected v{VERSION}.)
-    #     }
-    #     const [nodeSize] = new Uint16Array(data, 2, 1)
-    #     const [numItems] = new Uint32Array(data, 4, 1)
+    @classmethod
+    def from_buffer(cls, bytearray data):
+        cdef char versionAndType = data[1]
 
-    #     return new Flatbush(numItems, nodeSize, ARRAY_TYPES[versionAndType & 0x0f], data)
-    # }
+        if data[0] != 0xfb:
+            raise ValueError('Data does not appear to be in a Flatbush format.')
+
+        if versionAndType >> 4 != VERSION:
+            raise ValueError(f'Got v{versionAndType >> 4} data when expected v{VERSION}.)')
+
+        nodeSize = np.frombuffer(data, dtype=np.uint16, offset=2, count=1)[0]
+        numItems = np.frombuffer(data, dtype=np.uint32, offset=4, count=1)[0]
+
+        # TODO: handle array type
+        # ARRAY_TYPES[versionAndType & 0x0f]
+        return cls(numItems=numItems, nodeSize=nodeSize, data=data)
 
     def __init__(
         self,
@@ -102,7 +102,7 @@ cdef class Flatbush:
         if data is not None:
             self.data = data
             self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=int(numNodes * 4))
-            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=int(numNodes))
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=int(8 + nodesByteSize), count=int(numNodes))
 
             self._pos = numNodes * 4
             self.minX = self._boxes[self._pos - 4]
