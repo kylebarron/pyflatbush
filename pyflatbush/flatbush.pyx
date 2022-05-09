@@ -179,7 +179,7 @@ cdef class Flatbush:
         return index
 
     @cdivision(True)
-    cpdef void finish(self):
+    cpdef void finish(self) except *:
         if self._pos >> 2 != self.numItems:
             raise ValueError(f'Added {self._pos >> 2} items when expected {self.numItems}.')
 

@@ -124,7 +124,6 @@ def test_reconstructs_an_index_from_array_buffer():
     assert index.nodeSize == index2.nodeSize
 
 
-@pytest.mark.skip("Cython throws uncaught error, but not propagated up to Python")
 def test_throws_an_error_if_added_less_items_than_the_index_size():
     with pytest.raises(Exception):
         index = Flatbush(len(data) / 4)
@@ -155,13 +154,6 @@ def test_k_nearest_neighbors_query_accepts_maxDistance():
     index = create_index()
     ids = index.neighbors(50, 50, np.inf, 12)
     assert sorted(ids) == sorted([6, 29, 31, 75, 85])
-
-
-# @pytest.mark.skip()
-# def test_k_nearest_neighbors_query_accepts_filterFn():
-#     index = create_index()
-#     ids = index.neighbors(50, 50, 6, np.inf, i => i % 2 === 0)
-#     t.same(ids.sort(compare), [6, 16, 18, 24, 54, 80].sort(compare))
 
 
 def test_returns_index_of_newly_added_rectangle():
