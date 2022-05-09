@@ -37,6 +37,21 @@ def create_index():
     return index
 
 
+def create_index_vectorized():
+    index = Flatbush(int(len(data) / 4))
+    arr = np.array(data).reshape(4, -1).astype(np.float64)
+    index.add_vectorized(
+        arr[0, :],
+        arr[1, :],
+        arr[2, :],
+        arr[3, :],
+    )
+
+    index.finish()
+
+    return index
+
+
 def create_small_index(numItems, nodeSize):
     index = Flatbush(numItems, nodeSize)
 
@@ -54,6 +69,18 @@ def test_indexes_a_bunch_of_rectangles():
     boxes_len = len(index._boxes)
     assert len(index._boxes) + len(index._indices) == 540
     assert np.array_equal(index._boxes[boxes_len - 4 : boxes_len], [0, 1, 96, 95])
+    assert index._indices[int(boxes_len / 4 - 1)] == 400
+
+
+def test_indexes_a_bunch_of_rectangles_vectorized():
+    index = create_index_vectorized()
+
+    boxes_len = len(index._boxes)
+    assert len(index._boxes) + len(index._indices) == 540
+
+    # NOTE: this is different from above because the vectorized impl only accepts double
+    # as input coords?
+    assert np.array_equal(index._boxes[boxes_len - 4 : boxes_len], [0, 2, 96, 92])
     assert index._indices[int(boxes_len / 4 - 1)] == 400
 
 
@@ -125,12 +152,23 @@ def test_reconstructs_an_index_from_array_buffer():
 
 
 def test_throws_an_error_if_added_less_items_than_the_index_size():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         index = Flatbush(len(data) / 4)
         index.finish()
 
 
-@pytest.mark.skip()
+def test_throws_error_with_arrays_of_different_sizes():
+    with pytest.raises(ValueError):
+        index = Flatbush(len(data) / 4)
+        arr = np.array(data).reshape(4, -1)
+        index.add_vectorized(
+            arr[0, :],
+            arr[1, :],
+            arr[2, :],
+            arr[3, :-1],
+        )
+
+
 def test_throws_an_error_if_searching_before_indexing():
     with pytest.raises(ValueError):
         index = Flatbush(len(data) / 4)
