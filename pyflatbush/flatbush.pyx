@@ -102,7 +102,7 @@ cdef class Flatbush:
         if data is not None:
             self.data = data
             self._boxes = np.frombuffer(self.data, dtype=ArrayType, offset=8, count=int(numNodes * 4))
-            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=8 + nodesByteSize, count=int(numNodes))
+            self._indices = np.frombuffer(self.data, dtype=IndexArrayType, offset=int(8 + nodesByteSize), count=int(numNodes))
 
             self._pos = numNodes * 4
             self.minX = self._boxes[self._pos - 4]
