@@ -92,7 +92,6 @@ def test_skips_sorting_less_than_nodeSize_number_of_rectangles():
     )
 
 
-@pytest.mark.skip()
 def test_performs_bbox_search():
     index = create_index()
 

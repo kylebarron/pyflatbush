@@ -269,55 +269,60 @@ cdef class Flatbush:
                 self._pos += 1
 
 
-    # cdef search(self, minX, minY, maxX, maxY, filterFn = None):
-    #     if self._pos != self._boxes.length:
-    #         raise ValueError('Data not yet indexed - call index.finish().')
+    cpdef search(self, double minX, double minY, double maxX, double maxY):
+        if self._pos != len(self._boxes):
+            raise ValueError('Data not yet indexed - call index.finish().')
 
-    #     nodeIndex = self._boxes.length - 4
-    #     queue = []
-    #     results = []
+        cdef unsigned int nodeIndex, pos, index
 
-    #     # TODO: fix while loop syntax
-    #     while nodeIndex != undefined:
-    #         # find the end index of the node
-    #         end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
+        nodeIndex = len(self._boxes) - 4
+        queue = array('I')
+        results = array('I')
 
-    #         # search through child nodes
-    #         for pos in range(nodeIndex, end, 4):
-    #             # check if node bbox intersects with query bbox
-    #             if maxX < self._boxes[pos]:
-    #                 # maxX < nodeMinX
-    #                 continue
-    #             if maxY < self._boxes[pos + 1]:
-    #                 # maxY < nodeMinY
-    #                 continue
-    #             if minX > self._boxes[pos + 2]:
-    #                 # minX > nodeMaxX
-    #                 continue
-    #             if minY > self._boxes[pos + 3]:
-    #                 # minY > nodeMaxY
-    #                 continue
+        # TODO: fix while loop syntax
+        while True:
+            # find the end index of the node
+            end = min(nodeIndex + self.nodeSize * 4, upperBound(nodeIndex, self._levelBounds))
 
-    #             index = self._indices[pos >> 2] | 0
+            # search through child nodes
+            for pos in range(nodeIndex, end, 4):
+                # check if node bbox intersects with query bbox
+                if maxX < self._boxes[pos]:
+                    # maxX < nodeMinX
+                    continue
+                if maxY < self._boxes[pos + 1]:
+                    # maxY < nodeMinY
+                    continue
+                if minX > self._boxes[pos + 2]:
+                    # minX > nodeMaxX
+                    continue
+                if minY > self._boxes[pos + 3]:
+                    # minY > nodeMaxY
+                    continue
 
-    #             if nodeIndex >= self.numItems * 4:
-    #                 # node; add it to the search queue
-    #                 queue.append(index)
+                index = self._indices[pos >> 2] | 0
 
-    #             elif filterFn is None or filterFn(index):
-    #                 # leaf item
-    #                 results.append(index)
+                if nodeIndex >= self.numItems * 4:
+                    # node; add it to the search queue
+                    queue.append(index)
 
-    #         nodeIndex = queue.pop()
+                else:
+                    # leaf item
+                    results.append(index)
 
-    #     return results
+            if len(queue) == 0:
+                break
+
+            nodeIndex = queue.pop()
+
+        return results
 
 
     # cdef neighbors(self, x, y, maxResults = INFINITY, maxDistance = INFINITY, filterFn):
-    #     if self._pos != self._boxes.length:
+    #     if self._pos != len(self._boxes):
     #         raise ValueError('Data not yet indexed - call index.finish().')
 
-    #     let nodeIndex = self._boxes.length - 4
+    #     let nodeIndex = len(self._boxes) - 4
     #     const q = self._queue
     #     const results = []
     #     const maxDistSquared = maxDistance * maxDistance
@@ -343,7 +348,7 @@ cdef class Flatbush:
     #         }
 
     #         # pop items from the queue
-    #         while q.length and (q.peek() & 1):
+    #         while len(q) and (q.peek() & 1):
     #             const dist = q.peekValue()
     #             if dist > maxDistSquared:
     #                 q.clear()
@@ -351,7 +356,7 @@ cdef class Flatbush:
 
     #             results.append(q.pop() >> 1)
 
-    #             if results.length == maxResults:
+    #             if len(results) == maxResults:
     #                 q.clear()
     #                 return results
 
@@ -370,10 +375,12 @@ cdef axisDist(k, min_val, max_val):
         return k - max_val
 
 
-cdef upperBound(value, arr):
+cdef unsigned int upperBound(unsigned int value, array[unsigned int] arr):
     """binary search for the first value in the array bigger than the given"""
+    cdef int i, j, m
+
     i = 0
-    j = arr.length - 1
+    j = len(arr) - 1
     while i < j:
         m = (i + j) >> 1
         if arr[m] > value:
